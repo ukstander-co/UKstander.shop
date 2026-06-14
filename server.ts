@@ -1,11 +1,10 @@
 import express from 'express';
-import { createClient } from '@libsql/client';
+import { createClient } from '@libsql/client/web';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import axios from 'axios';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import Groq from 'groq-sdk';
 import cron from 'node-cron';
 
@@ -510,7 +509,9 @@ function startServer() {
   };
 
   // Run rotation every 15 days at 3 AM
-  cron.schedule('0 3 */15 * *', rotateBlogTags);
+  if (!process.env.VERCEL) {
+    cron.schedule('0 3 */15 * *', rotateBlogTags);
+  }
 
   // --- Autonomous UK SEO Agent (Groq) ---
   const updateUKSEO = async () => {
@@ -1032,42 +1033,44 @@ function startServer() {
   }
 
   // Pre-seed trends on startup if table is empty
-  (async () => {
-    try {
-      const trendsCheck = await db.execute("SELECT COUNT(*) as count FROM ai_trend_suggestions WHERE status = 'pending'");
-      const count = trendsCheck.rows[0].count as number;
-      if (count === 0) {
-        console.log("[Startup Autopilot] Trend suggestion table is empty. Scrapping initial trending products...");
-        discoverTrendingProducts(false);
-      }
-    } catch(e) {}
-  })();
-  
-  cron.schedule('0 0 * * *', updateUKSEO);
-  cron.schedule('0 2 * * *', () => {
-    console.log("[Autopilot Scheduler] Running scheduled daily UK trend products discovery...");
-    discoverTrendingProducts(false);
-  });
+  if (!process.env.VERCEL) {
+    (async () => {
+      try {
+        const trendsCheck = await db.execute("SELECT COUNT(*) as count FROM ai_trend_suggestions WHERE status = 'pending'");
+        const count = trendsCheck.rows[0].count as number;
+        if (count === 0) {
+          console.log("[Startup Autopilot] Trend suggestion table is empty. Scrapping initial trending products...");
+          discoverTrendingProducts(false);
+        }
+      } catch(e) {}
+    })();
+    
+    cron.schedule('0 0 * * *', updateUKSEO);
+    cron.schedule('0 2 * * *', () => {
+      console.log("[Autopilot Scheduler] Running scheduled daily UK trend products discovery...");
+      discoverTrendingProducts(false);
+    });
 
-  // Daily cleanup of blogs older than 15 days
-  cron.schedule('0 4 * * *', async () => {
-    console.log("[Autopilot Scheduler] Cleaning up blogs older than 15 days...");
-    try {
-      // Delete comments for expired blogs first
-      await db.execute(`
-        DELETE FROM blog_comments 
-        WHERE blog_id IN (SELECT id FROM blogs WHERE created_at < date('now', '-15 days'))
-      `);
-      // Delete the expired blogs
-      const result = await db.execute(`
-        DELETE FROM blogs 
-        WHERE created_at < date('now', '-15 days')
-      `);
-      console.log(`[Autopilot Scheduler] Cleanup complete. Removed ${result.rowsAffected} expired blog entries.`);
-    } catch (err) {
-      console.error("[Autopilot Scheduler] Blog cleanup failed:", err);
-    }
-  });
+    // Daily cleanup of blogs older than 15 days
+    cron.schedule('0 4 * * *', async () => {
+      console.log("[Autopilot Scheduler] Cleaning up blogs older than 15 days...");
+      try {
+        // Delete comments for expired blogs first
+        await db.execute(`
+          DELETE FROM blog_comments 
+          WHERE blog_id IN (SELECT id FROM blogs WHERE created_at < date('now', '-15 days'))
+        `);
+        // Delete the expired blogs
+        const result = await db.execute(`
+          DELETE FROM blogs 
+          WHERE created_at < date('now', '-15 days')
+        `);
+        console.log(`[Autopilot Scheduler] Cleanup complete. Removed ${result.rowsAffected} expired blog entries.`);
+      } catch (err) {
+        console.error("[Autopilot Scheduler] Blog cleanup failed:", err);
+      }
+    });
+  }
 
 
   // --- External Hunting / Sync Endpoints ---
@@ -3002,11 +3005,13 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
 
   // Vite middleware for development or serving static files in production
   if (process.env.NODE_ENV !== "production") {
-    createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    }).then((vite) => {
-      app.use(vite.middlewares);
+    import('vite').then(({ createServer: createViteServer }) => {
+      createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      }).then((vite) => {
+        app.use(vite.middlewares);
+      }).catch(console.error);
     }).catch(console.error);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
