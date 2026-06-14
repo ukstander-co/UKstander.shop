@@ -45,7 +45,25 @@ export default function Login() {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError, 'Response was:', responseText);
+        toast.error(`Server error (${response.status}): ${responseText.slice(0, 120)}...`, {
+          duration: 6000,
+          style: {
+            borderRadius: '1rem',
+            background: '#E11D48',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '11px'
+          }
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       if (response.ok) {
         toast.success('Access Granted. Synchronizing node...', {
@@ -84,9 +102,9 @@ export default function Login() {
           }
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging in:', error);
-      toast.error('Node Connection Error');
+      toast.error(`Node Connection Error: ${error?.message || 'Check terminal logs'}`);
     } finally {
       // Keep it true for a bit longer to show the fancy animation
       setTimeout(() => setIsSubmitting(false), 1000);

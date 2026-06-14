@@ -46,7 +46,25 @@ export default function ForgetPassword() {
         body: JSON.stringify({ email })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError, 'Response was:', responseText);
+        toast.error(`Server error (${response.status}): ${responseText.slice(0, 120)}...`, {
+          duration: 6000,
+          style: {
+            borderRadius: '1rem',
+            background: '#E11D48',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '11px'
+          }
+        });
+        setStatus('error');
+        return;
+      }
 
       if (response.ok) {
         toast.success(data.message || 'Recovery link dispatched!', {
@@ -68,9 +86,9 @@ export default function ForgetPassword() {
         });
         setStatus('error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submission failed", error);
-      toast.error('Protocol Sync Failed');
+      toast.error(`Protocol Sync Failed: ${error?.message || ''}`);
       setStatus('error');
     }
   };

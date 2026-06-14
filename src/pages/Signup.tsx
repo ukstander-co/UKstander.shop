@@ -46,7 +46,25 @@ export default function Signup() {
         body: JSON.stringify({ name, email, password })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError, 'Response was:', responseText);
+        toast.error(`Server error (${response.status}): ${responseText.slice(0, 120)}...`, {
+          duration: 6000,
+          style: {
+            borderRadius: '1rem',
+            background: '#E11D48',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '11px'
+          }
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       if (response.ok) {
         toast.success('Registration Protocol Initiated. Welcome!', {
@@ -72,9 +90,9 @@ export default function Signup() {
            }
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing up:', error);
-      toast.error('An error occurred during registration.');
+      toast.error(`An error occurred during registration: ${error?.message || ''}`);
     } finally {
       setTimeout(() => setIsSubmitting(false), 1000);
     }
