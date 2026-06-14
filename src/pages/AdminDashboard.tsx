@@ -23,7 +23,16 @@ import {
   ExternalLink,
   Calendar,
   X,
-  RefreshCw
+  RefreshCw,
+  Server,
+  Terminal,
+  Copy,
+  Lock,
+  Wifi,
+  Play,
+  CheckCircle2,
+  Trash,
+  Eye
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -38,7 +47,7 @@ import {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'insights' | 'products' | 'users' | 'pages' | 'chats' | 'trends' | 'alerts' | 'blogs'>('insights');
+  const [activeTab, setActiveTab] = useState<'insights' | 'products' | 'users' | 'pages' | 'chats' | 'trends' | 'alerts' | 'blogs' | 'deployment'>('insights');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
 
@@ -133,6 +142,21 @@ export default function AdminDashboard() {
   });
   const [blogSaveSuccess, setBlogSaveSuccess] = useState('');
   const [blogLoading, setBlogLoading] = useState(false);
+
+  // --- Oracle VM Easy Deployment & PM2 Helper ---
+  const [deployIp, setDeployIp] = useState('79.72.94.8');
+  const [deployPort, setDeployPort] = useState('3000');
+  const [deployDomain, setDeployDomain] = useState('ukstander.duckdns.org');
+  const [duckDnsToken, setDuckDnsToken] = useState('019eba66-3501-71e9-8995-576baba2f8b4');
+  const [cfDomain, setCfDomain] = useState('ukstander.shop');
+  const [activeDeploySubtab, setActiveDeploySubtab] = useState<'pm2' | 'autodeploy' | 'domain' | 'firewall' | 'easypanel'>('easypanel');
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const handleCopyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(label);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
 
   const fetchBlogs = () => {
     setBlogLoading(true);
@@ -835,6 +859,14 @@ export default function AdminDashboard() {
             className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'blogs' ? 'bg-[#0B192C] text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
           >
             <FileText className="w-4 h-4" /> Affiliate Blogs ({blogsList.length})
+          </button>
+
+          <button 
+            id="tab-deployment"
+            onClick={() => setActiveTab('deployment')} 
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'deployment' ? 'bg-[#2563EB] text-white shadow-md hover:bg-blue-700' : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 font-extrabold'}`}
+          >
+            <Server className="w-4 h-4 text-blue-600 animate-pulse" /> 🚀 Deployment & VM Hub
           </button>
         </div>
 
@@ -2165,6 +2197,718 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: Easy Deployment & VPS Management Hub (Oracle VM Helper) */}
+          {activeTab === 'deployment' && (
+            <div id="pane-deployment" className="space-y-6 animate-fade-in text-left">
+              {/* Main Banner Card */}
+              <div className="bg-gradient-to-r from-blue-900 via-[#0B192C] to-slate-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl border border-blue-800/50">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full filter blur-3xl"></div>
+                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <span className="bg-blue-500/20 text-blue-300 font-black tracking-widest text-[10px] uppercase px-3.5 py-1.5 rounded-full border border-blue-400/30">
+                      Oracle Cloud Infrastructure (OCI) Helper
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                      Easily Deploy & Manage OCI VM (<span className="text-blue-400 font-mono">79.72.94.8</span>)
+                    </h2>
+                    <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                      Sabar aur saaf kam ke liye ye deployment browser hub design kiya gaya hai. Is screen par aap asani se pm2 processes ko manage, duplicate apps ko band (Safaai), Cloudflare proxy configuration, aur GitHub automated setup commands 1-click me dekh aur copy kar sakte hain. No complicated steps!
+                    </p>
+                  </div>
+                  <div className="bg-slate-800/80 backdrop-blur-md px-5 py-3 rounded-2xl border border-slate-700 max-w-xs shrink-0 flex items-center gap-3">
+                    <Wifi className="w-5 h-5 text-green-400 animate-ping shrink-0" />
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Server Target IP</div>
+                      <div className="text-xs font-mono font-bold text-white">79.72.94.8</div>
+                      <div className="text-[10px] text-green-400 font-medium">Auto-Deployer Active</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Server Control Center Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                
+                {/* Left Side: Configuration Controls & Subtabs */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 pb-3 border-b border-slate-100">
+                    Configuration Variable Inputs
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 select-none">Target VM IP Address</label>
+                      <input 
+                        type="text" 
+                        value={deployIp}
+                        onChange={(e) => setDeployIp(e.target.value)}
+                        className="w-full text-xs font-mono px-3 py-2 border rounded-xl focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 select-none">Web Application Port</label>
+                      <input 
+                        type="text" 
+                        value={deployPort}
+                        onChange={(e) => setDeployPort(e.target.value)}
+                        className="w-full text-xs font-mono px-3 py-2 border rounded-xl focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 select-none">DuckDNS Subdomain Prefix</label>
+                      <input 
+                        type="text" 
+                        value={deployDomain}
+                        onChange={(e) => setDeployDomain(e.target.value)}
+                        placeholder="my-domain.duckdns.org"
+                        className="w-full text-xs font-mono px-3 py-2 border rounded-xl focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 select-none">DuckDNS Token</label>
+                      <input 
+                        type="text" 
+                        value={duckDnsToken}
+                        onChange={(e) => setDuckDnsToken(e.target.value)}
+                        placeholder="DuckDNS Access Token..."
+                        className="w-full text-xs font-mono px-3 py-2 border rounded-xl focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 select-none">My Custom Shop Domain (for CF Tunnel)</label>
+                      <input 
+                        type="text" 
+                        value={cfDomain}
+                        onChange={(e) => setCfDomain(e.target.value)}
+                        placeholder="ukstander.shop"
+                        className="w-full text-xs font-mono px-3 py-2 border rounded-xl focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+                    <button 
+                      onClick={() => setActiveDeploySubtab('easypanel')}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold text-left transition-all flex items-center gap-2 ${activeDeploySubtab === 'easypanel' ? 'bg-blue-600 text-white shadow-md' : 'text-blue-600 bg-blue-50/50 hover:bg-blue-100/50 border border-dashed border-blue-200'}`}
+                    >
+                      <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" /> ⚡ Vercel-Style Easypanel
+                    </button>
+                    <button 
+                      onClick={() => setActiveDeploySubtab('pm2')}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold text-left transition-all flex items-center gap-2 ${activeDeploySubtab === 'pm2' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <Terminal className="w-4 h-4" /> PM2 Cleaner & Safaai
+                    </button>
+                    <button 
+                      onClick={() => setActiveDeploySubtab('autodeploy')}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold text-left transition-all flex items-center gap-2 ${activeDeploySubtab === 'autodeploy' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <RefreshCw className="w-4 h-4" /> GitHub Auto-Deploy Setup
+                    </button>
+                    <button 
+                      onClick={() => setActiveDeploySubtab('domain')}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold text-left transition-all flex items-center gap-2 ${activeDeploySubtab === 'domain' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <Globe className="w-4 h-4" /> DNS & Cloudflare Tunnel
+                    </button>
+                    <button 
+                      onClick={() => setActiveDeploySubtab('firewall')}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold text-left transition-all flex items-center gap-2 ${activeDeploySubtab === 'firewall' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <Lock className="w-4 h-4" /> Ports & Firewalls (Oracle Rules)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Side: Detailed Guides & Click to Copy Buttons */}
+                <div className="lg:col-span-3 space-y-6">
+                  
+                  {/* Subtab 0: Easypanel PaaS Web GUI Guide */}
+                  {activeDeploySubtab === 'easypanel' && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      <div className="border-b pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                            <Sparkles className="text-blue-600 w-5 h-5 animate-pulse" />
+                            Vercel-Style Easypanel Self-Hosted PaaS Setup Guide
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Apne Oracle Cloud VM (<span className="font-mono text-blue-600 font-bold">79.72.94.8</span>) par pre-installed Vercel alternatives se zero-setup node deployments seekhein.
+                          </p>
+                        </div>
+                        <span className="bg-blue-105 text-blue-700 border border-blue-200 text-[10px] font-black px-3 py-1 rounded-full shrink-0 max-w-fit uppercase">
+                          Zero-Setup SSL & git push
+                        </span>
+                      </div>
+
+                      {/* Troubleshooting First: Port Timeout Warning */}
+                      <div className="bg-rose-50 border border-rose-200 p-5 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2 text-rose-800">
+                          <AlertCircle className="w-5 h-5 animate-bounce shrink-0" />
+                          <h4 className="text-xs font-black uppercase tracking-wider">CRITICAL: Timeout Warning & Fix (Why Port 3000 Timed Out)</h4>
+                        </div>
+                        <p className="text-xs text-rose-700 leading-relaxed pl-7">
+                          Yar aapne terminal me <code className="bg-white border px-1 rounded font-mono font-bold text-rose-800 text-[11px]">sudo iptables -F</code> command run kiya. Iptables flush karne se <strong>Docker Swarm aur containers ki internal iptables networking rules delete hojati hain!</strong> Isliye port 3000 standard block (connection time out) hogeya.
+                        </p>
+                        <p className="text-xs text-rose-700 leading-relaxed pl-7 font-bold">
+                          Isko immediately thik karne ke liye aap terminal me ye absolute asan commands run karein:
+                        </p>
+
+                        <div className="pl-7 space-y-3">
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-rose-600 block">1) Restart docker daemon (To automatically rebuild networking rules)</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                              <span>sudo systemctl restart docker</span>
+                              <button 
+                                onClick={() => handleCopyText('sudo systemctl restart docker', 'restartdocker')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> {copiedText === 'restartdocker' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-rose-600 block">2) Wait 10 seconds and Force restart Easypanel Swarm services</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                              <span>sudo docker service update --force easypanel</span>
+                              <button 
+                                onClick={() => handleCopyText('sudo docker service update --force easypanel', 'updateforce')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> {copiedText === 'updateforce' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step-by-Step Vercel Integration */}
+                      <div className="space-y-6 pt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Open Easypanel GUI Control Dashboard</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                          Upar di gayi commands ko run karne ke bad browser me ye control admin link open karein:
+                        </p>
+                        <div className="pl-7">
+                          <a 
+                            href={`http://${deployIp}:3000`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-blue-600 hover:underline bg-blue-50 px-3 py-2 rounded-xl border border-blue-200"
+                          >
+                            http://{deployIp}:3000/ <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Create a project & Application</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                          Easypanel UI me pehli bar credential register karne ke bad:
+                          <ul className="list-disc pl-5 mt-1.5 space-y-1">
+                            <li><strong>Create Project:</strong> "Projects" tab par click karein aur name set up karein: <code className="bg-slate-100 border px-1 rounded font-mono font-bold text-blue-700">ukstander-shop</code></li>
+                            <li><strong>Create Application Card:</strong> App par click karein, select name "ukstander-app"</li>
+                          </ul>
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Configure GitHub Source parameters</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                          Under the "Build" configurations or Git settings sidepane, set key fields:
+                          <ul className="list-disc pl-5 mt-1.5 space-y-1">
+                            <li><strong>Source type:</strong> Git Repository</li>
+                            <li><strong>Repository Url path:</strong> <code className="bg-slate-100 border px-1 rounded font-mono font-bold text-blue-700">https://github.com/ukstander-co/UKstander.shop.git</code></li>
+                            <li><strong>Branch name mapping:</strong> <code className="bg-slate-100 border px-1 rounded font-mono font-bold text-blue-700">main</code></li>
+                            <li><strong>Build method selection:</strong> Select <strong>Nixpacks</strong> (Nixpacks will automatically detect it is a full stack TypeScript Vite App, optimize builds and run command in no time!).</li>
+                          </ul>
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Variables Copy & Paste (Environment Secrets)</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 pl-7 leading-relaxed font-semibold">
+                          Easypanel Application ke "Environment" variables section sidepane me ye parameters paste karlein (Click on copy buttons):
+                        </p>
+
+                        <div className="pl-7 space-y-3.5">
+                          {/* Var 1 */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide">NODE_ENV</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                              <span>NODE_ENV=production</span>
+                              <button 
+                                onClick={() => handleCopyText('NODE_ENV=production', 'prodvar')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] bg-slate-800 px-2 py-0.5 rounded-md"
+                              >
+                                {copiedText === 'prodvar' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Var 2 */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide">TURSO_DATABASE_URL</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                              <span className="truncate max-w-sm">TURSO_DATABASE_URL=libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io</span>
+                              <button 
+                                onClick={() => handleCopyText('TURSO_DATABASE_URL=libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io', 'tursovar')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] bg-slate-800 px-2 py-0.5 rounded-md"
+                              >
+                                {copiedText === 'tursovar' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Var 3 */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide">TURSO_AUTH_TOKEN</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                              <span className="truncate max-w-sm">TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE0MjAxMDIsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.oDnwD6LaPZ04etSzkj3eYGEm9o7uSKQ22nJ-QtJzKIbg3KpeouITs7P-Qd-lZ2JkkXlKud3fXuRyFT1Cx1UiAQ</span>
+                              <button 
+                                onClick={() => handleCopyText('TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE0MjAxMDIsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.oDnwD6LaPZ04etSzkj3eYGEm9o7uSKQ22nJ-QtJzKIbg3KpeouITs7P-Qd-lZ2JkkXlKud3fXuRyFT1Cx1UiAQ', 'tokenvar')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] bg-slate-800 px-2 py-0.5 rounded-md"
+                              >
+                                {copiedText === 'tokenvar' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Var 4 */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide">GROQ_API_KEY</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                              <span className="truncate max-w-sm">GROQ_API_KEY=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</span>
+                              <button 
+                                onClick={() => handleCopyText('GROQ_API_KEY=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', 'groqvar')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] bg-slate-800 px-2 py-0.5 rounded-md"
+                              >
+                                {copiedText === 'groqvar' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Var 5 */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide">PRODUCT_GROQ_API_KEY</span>
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                              <span className="truncate max-w-sm">PRODUCT_GROQ_API_KEY=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</span>
+                              <button 
+                                onClick={() => handleCopyText('PRODUCT_GROQ_API_KEY=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', 'groqproductvar')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] bg-slate-800 px-2 py-0.5 rounded-md"
+                              >
+                                {copiedText === 'groqproductvar' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Deploy & Map Custom Domain with Auto-SSL</h4>
+                        </div>
+                        <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                          "Domains" and redirects config page me custom domains mapping insert karein:
+                          <ul className="list-disc pl-5 mt-1.5 space-y-1">
+                            <li><strong>Custom Domain:</strong> Set mapping to <code className="bg-slate-100 border px-1 rounded font-mono font-bold text-blue-700">{cfDomain}</code> (Make sure Cloudflare DNS side is pointed to OCI VM server IP 79.72.94.8 with proxy turned on/off).</li>
+                            <li><strong>Automatic SSL Provision:</strong> Easypanel has Traefik pre-installed, so it will <strong>automatically register and renew a Let's Encrypt SSL certificate for you</strong>. Ssl setup complete within seconds!</li>
+                          </ul>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtab 1: PM2 manager */}
+                  {activeDeploySubtab === 'pm2' && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      <div className="border-b pb-4 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                            <Terminal className="text-blue-600 w-5 h-5" />
+                            PM2 Cleaner & Manager (Faltu Processes ko Band Karna)
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Aapki free tier VM me limited resources (1GB RAM) hain. Purane or faltu duplicate processes ko band rakhna zaroori hai.
+                          </p>
+                        </div>
+                        <span className="bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold px-3 py-1 rounded-full">
+                          Memory optimization
+                        </span>
+                      </div>
+
+                      {/* Commands blocks stack */}
+                      <div className="space-y-6">
+                        {/* Step 1 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Active Processes dekehin (View Active list)</h4>
+                          </div>
+                          <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                            Pehle ye command chalayein taake aapko pata chale kaun si scripts background me active chal rahi hain:
+                          </p>
+                          <div className="pl-7">
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                              <span>pm2 list</span>
+                              <button 
+                                onClick={() => handleCopyText('pm2 list', 'list')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> {copiedText === 'list' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Faltu programs ya scripts ko band karein (Stop unwanted apps)</h4>
+                          </div>
+                          <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                            Agar list me koi aesi script hai jiski zaroorat nahi (for example script ID 1 ya 2), use temporary band karne ya system se hatane ke liye:
+                          </p>
+                          <div className="pl-7 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                                <div>
+                                  <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">Stop specific App (e.g. ID 1)</span>
+                                  <span>pm2 stop 1</span>
+                                </div>
+                                <button 
+                                  onClick={() => handleCopyText('pm2 stop 1', 'stop1')}
+                                  className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  <Copy className="w-3.5 h-3.5" /> {copiedText === 'stop1' ? 'Copied!' : 'Copy'}
+                                </button>
+                              </div>
+
+                              <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                                <div>
+                                  <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">Completely remove App from PM2 list</span>
+                                  <span>pm2 delete 1</span>
+                                </div>
+                                <button 
+                                  onClick={() => handleCopyText('pm2 delete 1', 'delete1')}
+                                  className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  <Copy className="w-3.5 h-3.5" /> {copiedText === 'delete1' ? 'Copied!' : 'Copy'}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs p-3.5 rounded-xl rounded-t-none">
+                              <strong>Dhyaan Dein:</strong> Agar aapko lagta hai bohot sari duplicate apps chal rahi hain to aap <code className="font-mono bg-white border px-1 rounded font-bold text-rose-700">pm2 delete all</code> run kar sakte hain, aur uske baad apni main shopping app start karein.
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Main UKstander Shop Process ko start ya restart karein</h4>
+                          </div>
+                          <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                            Memory optimal limit ke sath hamare shop application ko PM2 me run karne ki ultimate command:
+                          </p>
+                          <div className="pl-7">
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                              <span>pm2 start dist/server.cjs --name "ukstander-shop" --max-memory-restart 700M</span>
+                              <button 
+                                onClick={() => handleCopyText('pm2 start dist/server.cjs --name "ukstander-shop" --max-memory-restart 700M', 'startshop')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> {copiedText === 'startshop' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">PM2 Setup list ko permanent save karein (Freeze list)</h4>
+                          </div>
+                          <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                            Server reboot hone par automatic app restart ho, iske liye ye command lazmi hai:
+                          </p>
+                          <div className="pl-7">
+                            <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 shadow-sm">
+                              <span>pm2 save</span>
+                              <button 
+                                onClick={() => handleCopyText('pm2 save', 'savepm2')}
+                                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> {copiedText === 'savepm2' ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtab 2: GitHub Auto-Deploy Setup */}
+                  {activeDeploySubtab === 'autodeploy' && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      <div className="border-b pb-4">
+                        <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                          <RefreshCw className="text-blue-600 w-5 h-5" />
+                          GitHub Automatic Deployment Center (Vercel Style)
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Hamne server par <code className="font-mono bg-slate-100 border px-1 rounded text-blue-700 font-bold">/home/ubuntu/auto-deploy.sh</code> banaya hai. Ye script GitHub par naya code aate hi automatically code updates pull karke build start karega.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">How to Test the Auto-Deploy Process Manually</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Aap terminal me ye command de kar check sakte hain k automatic update deployment sahi kaam kar rahi hai ya nahi. Is se logs report test ho jayegi:
+                        </p>
+                        
+                        <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3.5 flex justify-between items-center border border-slate-800 shadow-sm select-all">
+                          <span>/bin/bash /home/ubuntu/auto-deploy.sh</span>
+                          <button 
+                            onClick={() => handleCopyText('/bin/bash /home/ubuntu/auto-deploy.sh', 'runtest')}
+                            className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                          >
+                            <Copy className="w-3.5 h-3.5" /> {copiedText === 'runtest' ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+
+                        <div className="border-t pt-4 space-y-3">
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Deployment Logs report dekhna</h4>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            Her 1 hour/1 minute baad automatic deployment ka kya status raha, uspe errors aayi ya updates hue, use check karne ki command:
+                          </p>
+                          <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3.5 flex justify-between items-center border border-slate-800 shadow-sm">
+                            <span>cat /home/ubuntu/deploy.log</span>
+                            <button 
+                              onClick={() => handleCopyText('cat /home/ubuntu/deploy.log', 'catlog')}
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> {copiedText === 'catlog' ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-4 rounded-xl leading-relaxed">
+                          <strong>Note on Crontab Setup:</strong> Agar system automatially execute na ho raha ho, to verify karein `crontab -e` me ye line likhi hui hai:<br />
+                          <code className="block bg-white p-1.5 mt-2 border rounded font-mono text-slate-700 font-bold">
+                            * * * * * /bin/bash /home/ubuntu/auto-deploy.sh &gt;&gt; /home/ubuntu/cron-deploy.log 2&gt;&amp;1
+                          </code>
+                          Ye line automatic her minute GitHub code checks dynamic banati hai (Jaise Vercel me hota hai).
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtab 3: DNS & Cloudflare Tunnel */}
+                  {activeDeploySubtab === 'domain' && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      <div className="border-b pb-4">
+                        <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                          <Globe className="text-blue-600 w-5 h-5" />
+                          DNS, Free Domains aur Advanced Cloudflare Setup
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Domain setup ko standard Nginx proxy or SSL ke complex steps ke bagair, extra security ke sath set up karne ke options.
+                        </p>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Option 1 */}
+                        <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl relative space-y-3">
+                          <span className="absolute top-4 right-4 bg-blue-100 text-blue-800 text-[9px] uppercase font-extrabold px-2.5 py-1 rounded-md">
+                            Option A: DuckDNS Manual Updater
+                          </span>
+                          <h4 className="text-xs font-bold text-slate-800 tracking-wide uppercase">DuckDNS Dynamic Connection Test</h4>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            Agar aapka DuckDNS automatic connect nahi ho raha hai, to server par directly ye command chala kar use current server IP (<span className="font-bold text-slate-900">{deployIp}</span>) par register karein:
+                          </p>
+                          <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3 flex justify-between items-center border border-slate-800 show-all">
+                            <span className="truncate max-w-lg">curl -s "https://www.duckdns.org/update?domains={deployDomain.replace('.duckdns.org','')}&token={duckDnsToken}&ip={deployIp}"</span>
+                            <button 
+                              onClick={() => handleCopyText(`curl -s "https://www.duckdns.org/update?domains=${deployDomain.replace('.duckdns.org','')}&token=${duckDnsToken}&ip=${deployIp}"`, 'duckcurl')}
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-md shrink-0 ml-2"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> {copiedText === 'duckcurl' ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Option 2 */}
+                        <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl relative space-y-3">
+                          <span className="absolute top-4 right-4 bg-emerald-600 text-white text-[9px] uppercase font-extrabold px-2.5 py-1 rounded-md animate-pulse">
+                            RECOMENDED (EASY & SAFE)
+                          </span>
+                          <h4 className="text-xs font-bold text-blue-900 tracking-wide uppercase flex items-center gap-1">
+                            <Sparkles className="w-4 h-4 text-emerald-500 animate-spin" />
+                            Option B: Cloudflare Tunnels (Zero Setup Reverse Proxy)
+                          </h4>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            Ye tarika <strong>FULL EASY</strong> hai kyun ke isme dynamic DNS, Nginx rules, aur SSL certificate (Certbot) configurations ki <strong>Bilkul zaroorat nahi parti</strong>. System automatic bypass karleta hai. Iske steps:
+                          </p>
+
+                          <div className="space-y-3 pl-3">
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-extrabold text-slate-450 block">Step 1: Install Cloudflare Agent on VM</span>
+                              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                                <span className="truncate max-w-lg">curl -L -o cf.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && sudo dpkg -i cf.deb</span>
+                                <button 
+                                  onClick={() => handleCopyText('curl -L -o cf.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && sudo dpkg -i cf.deb', 'cf1')}
+                                  className="text-slate-400 hover:text-white transition-colors text-[10px] font-bold bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-extrabold text-slate-450 block">Step 2: Login via Browser URL link</span>
+                              <p className="text-[10px] text-slate-500">Is command ko run karte hi ek browser url link milega. Use open karke click approve karein:</p>
+                              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                                <span>cloudflared tunnel login</span>
+                                <button 
+                                  onClick={() => handleCopyText('cloudflared tunnel login', 'cf2')}
+                                  className="text-slate-400 hover:text-white transition-colors text-[10px] font-bold bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-extrabold text-slate-450 block">Step 3: Create safe internet tunnel</span>
+                              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                                <span>cloudflared tunnel create ukstander-tunnel</span>
+                                <button 
+                                  onClick={() => handleCopyText('cloudflared tunnel create ukstander-tunnel', 'cf3')}
+                                  className="text-slate-400 hover:text-white transition-colors text-[10px] font-bold bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-extrabold text-slate-450 block">Step 4: Map your Domain to shop port 3000 local</span>
+                              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                                <span className="truncate max-w-lg">cloudflared tunnel route dns ukstander-tunnel {cfDomain}</span>
+                                <button 
+                                  onClick={() => handleCopyText(`cloudflared tunnel route dns ukstander-tunnel ${cfDomain}`, 'cf4')}
+                                  className="text-slate-400 hover:text-white transition-colors text-[10px] font-bold bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase font-extrabold text-slate-450 block">Step 5: Start proxy server tunnel</span>
+                              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] rounded-xl p-2.5 flex justify-between items-center border border-slate-800">
+                                <span className="truncate max-w-lg">cloudflared tunnel run --url http://localhost:3000 ukstander-tunnel</span>
+                                <button 
+                                  onClick={() => handleCopyText(`cloudflared tunnel run --url http://localhost:3000 ukstander-tunnel`, 'cf5')}
+                                  className="text-slate-400 hover:text-white transition-colors text-[10px] font-bold bg-slate-800 px-2 py-1 rounded-md"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtab 4: Ports & Firewalls */}
+                  {activeDeploySubtab === 'firewall' && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      <div className="border-b pb-4">
+                        <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                          <Lock className="text-blue-600 w-5 h-5" />
+                          Oracle Cloud VM Ports & Network security rules
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Agar aap DuckDNS ya simple domain se access kar rahe hain, to Oracle cloud interface aur server firewalls dono par standard ports permission lazmi allow honi chahiye.
+                        </p>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-xl leading-relaxed text-xs">
+                          <strong>Ahsan Oracle Instruction:</strong> Oracle dashboard me subnets security specifications lists me <strong>Ingress Rules</strong> add karein:<br />
+                          <ul className="list-disc pl-5 mt-2 space-y-1">
+                            <li><strong>Source CIDR:</strong> 0.0.0.0/0</li>
+                            <li><strong>IP Protocol:</strong> TCP</li>
+                            <li><strong>Destination Port Range:</strong> 80, 443, 3000</li>
+                          </ul>
+                          (Aapne bataya k rules open kar liye hain - ye zabardast hai!)
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-tight text-slate-800">Ubuntu VM local Firewalls verify karein</h4>
+                          <p className="text-xs text-slate-600">
+                            Server firewall defaults bypass karne ke liye ye commands run karein:
+                          </p>
+
+                          <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3.5 flex justify-between items-center border border-slate-800">
+                            <div>
+                              <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">Open local network rules</span>
+                              <span>sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 3000/tcp && sudo ufw reload</span>
+                            </div>
+                            <button 
+                              onClick={() => handleCopyText('sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 3000/tcp && sudo ufw reload', 'ufwallow')}
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold bg-slate-800 px-2.5 py-1.5 rounded-md shrink-0 ml-2"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-tight text-slate-800">Direct Port-Forwarding (Port 80 to 3000 Redirect)</h4>
+                          <p className="text-xs text-slate-600">
+                            Agar aap Bina Nginx proxy set up ke chahte hain k external users simple HTTP IP standard call karein, to incoming Traffic Port 80 directly Port 3000 par map ho jaye, uski fast iptables forward rule command:
+                          </p>
+
+                          <div className="bg-slate-900 text-slate-100 font-mono text-xs rounded-xl p-3.5 flex justify-between items-center border border-slate-800">
+                            <div>
+                              <span>sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000</span>
+                            </div>
+                            <button 
+                              onClick={() => handleCopyText('sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000', 'iptable80')}
+                              className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold bg-slate-800 px-2.5 py-1.5 rounded-md shrink-0 ml-2"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
               </div>
             </div>
           )}
