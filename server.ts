@@ -1200,6 +1200,44 @@ function startServer() {
 
   // --- API Routes ---
 
+  // Diagnostic Endpoint to troubleshoot Vercel database connection issues
+  app.get('/api/db-test', async (req, res) => {
+    try {
+      const config = {
+        dbUrl,
+        has_env_url: !!process.env.TURSO_DATABASE_URL,
+        has_env_token: !!process.env.TURSO_AUTH_TOKEN,
+        node_version: process.version,
+        env_node_env: process.env.NODE_ENV,
+        env_vercel: process.env.VERCEL || "not-set",
+      };
+      
+      console.log("[Diagnostic] Running db-test with config:", { ...config, dbTokenLength: dbToken?.length });
+      const dbResult = await db.execute("SELECT 1 as test, datetime('now') as dtime");
+      
+      res.json({
+        success: true,
+        message: "Database connected successfully!",
+        config,
+        data: dbResult.rows
+      });
+    } catch (err: any) {
+      console.error("[Diagnostic] db-test failed:", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Unknown error occurred",
+        stack: err.stack,
+        config: {
+          dbUrl,
+          has_env_url: !!process.env.TURSO_DATABASE_URL,
+          has_env_token: !!process.env.TURSO_AUTH_TOKEN,
+          node_version: process.version,
+          env_node_env: process.env.NODE_ENV,
+        }
+      });
+    }
+  });
+
   // Get Latest UK SEO Data
   app.get('/api/seo', async (req, res) => {
     try {
