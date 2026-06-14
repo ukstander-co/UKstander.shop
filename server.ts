@@ -12,8 +12,9 @@ import cron from 'node-cron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const app = express();
+
 async function startServer() {
-  const app = express();
   const PORT = 3000;
 
   app.use(express.json());
@@ -3006,9 +3007,13 @@ CRITICAL: Do not include any comments (like //) or inline calculations (like (2/
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

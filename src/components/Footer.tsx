@@ -5,7 +5,11 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { useTranslation } from '../hooks/useTranslation';
 import Logo from './Logo';
 
-export default function Footer() {
+interface FooterProps {
+  minimal?: boolean;
+}
+
+export default function Footer({ minimal = false }: FooterProps) {
   const { countryName, languageName, currency, flagEmoji } = useGeolocation();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -67,6 +71,21 @@ export default function Footer() {
       setTimeout(() => setSubscribed(false), 3000);
     }
   };
+
+  if (minimal) {
+    return (
+      <footer className="mt-auto py-4 px-6 w-full bg-transparent text-center z-10 select-none">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] font-bold text-slate-700 uppercase tracking-widest leading-loose">
+          <p className="opacity-90">{copyrightText}</p>
+          <div className="flex items-center gap-6">
+            <Link to="/privacy" className="text-slate-700 hover:text-indigo-600 transition-colors font-extrabold">Privacy</Link>
+            <Link to="/terms" className="text-slate-700 hover:text-indigo-600 transition-colors font-extrabold">Terms</Link>
+            <Link to="/cookies" className="text-slate-700 hover:text-indigo-600 transition-colors font-extrabold">Cookies</Link>
+          </div>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer className="mt-auto flex flex-col w-full z-10 font-sans">

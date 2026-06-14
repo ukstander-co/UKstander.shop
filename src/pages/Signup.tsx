@@ -237,7 +237,7 @@ export default function Signup() {
         </motion.div>
       </div>
 
-      <Footer />
+      <Footer minimal />
     </div>
   );
 }

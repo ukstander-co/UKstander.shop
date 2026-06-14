@@ -192,7 +192,7 @@ export default function ForgetPassword() {
         </motion.div>
       </div>
 
-      <Footer />
+      <Footer minimal />
     </div>
   );
 }
