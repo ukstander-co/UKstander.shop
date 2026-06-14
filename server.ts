@@ -13,7 +13,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const dbUrl = process.env.TURSO_DATABASE_URL || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
+let dbUrl = process.env.TURSO_DATABASE_URL || "libsql://affiliate-app-db-ukstander-co.aws-eu-west-1.turso.io";
+if (dbUrl.startsWith("libsql://")) {
+  dbUrl = dbUrl.replace("libsql://", "https://");
+}
 const dbToken = process.env.TURSO_AUTH_TOKEN || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODEyNDM3OTQsImlkIjoiMDE5ZWJhNjYtMzUwMS03MWU5LTg5OTUtNTc2YmFiYTJmOGI0IiwicmlkIjoiNjNkZDRhZWUtYzQwMi00MGVjLTg2ZmMtOWQwNGYxZTU5ZGEzIn0.RuNySR7j0ez6Mp_3ciTHJzc5oMoM7ByMg0g0T1kle8s-1RIzA7N_RY-RGgxvKbaAX-K3PECMPjkWtofEYF0MDQ";
 
 const db = createClient({
