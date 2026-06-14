@@ -1,0 +1,6 @@
+{
+  "name": "UK Stander - AI Affiliate Dashboard",
+  "description": "A comprehensive AI-powered affiliate shopping platform with personalized dashboards, live price drop tracking, and intelligent product curation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
