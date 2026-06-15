@@ -33,6 +33,8 @@ export default function Header({
   const [searchBarCategory, setSearchBarCategory] = useState(initialCategory);
   const [searchHistory, setSearchHistory] = useState<string[]>(JSON.parse(localStorage.getItem('searchHistory') || '[]'));
   const [showHistory, setShowHistory] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -43,6 +45,39 @@ export default function Header({
 
   const { countryName, flagEmoji, languageCode, changeLanguage, availableLanguages } = useGeolocation();
   const { t } = useTranslation();
+
+  // Search autocomplete timeout logic
+  useEffect(() => {
+    if (showHistory && searchInput.trim() === '') {
+      searchTimeoutRef.current = setTimeout(() => {
+        setShowHistory(false);
+      }, 3000);
+    } else {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    };
+  }, [showHistory, searchInput]);
+
+  const trendingQueries = useMemo(() => ['smartphones', 'running shoes', 'laptop stand', 'wireless headphones', 'coffee machine'], []);
+
+  const filteredTrending = useMemo(() => {
+    if (!searchInput.trim()) return trendingQueries;
+    return trendingQueries.filter(t => t.toLowerCase().includes(searchInput.trim().toLowerCase()));
+  }, [searchInput, trendingQueries]);
+
+  const filteredHistory = useMemo(() => {
+    if (!searchInput.trim()) return searchHistory;
+    return searchHistory.filter(h => h.toLowerCase().includes(searchInput.trim().toLowerCase()));
+  }, [searchInput, searchHistory]);
 
   useEffect(() => {
     fetch('/api/global-settings')
@@ -220,28 +255,47 @@ export default function Header({
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="w-full flex-1 flex h-10 rounded-full overflow-hidden border border-slate-700/50 relative focus-within:ring-2 focus-within:ring-red-600 bg-white group" ref={searchRef}>
-              <select 
-                value={searchBarCategory}
-                onChange={(e) => setSearchBarCategory(e.target.value)}
-                className="hidden sm:block bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2 outline-none border-r border-slate-300 cursor-pointer h-full max-w-[120px] rounded-l-full truncate"
-              >
-                {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat === 'All Categories' ? t('all_categories') : cat}</option>)}
-             </select>
-             
+          {/* Search Bar - Premium Modern Design */}
+          <div className="w-full flex-1 flex h-11 sm:h-12 rounded-full overflow-hidden border-2 border-transparent relative focus-within:border-[#febd69]/80 focus-within:shadow-[0_0_15px_rgba(254,189,105,0.2)] bg-white transition-all duration-300 group" ref={searchRef}>
+              
+             <div className="pl-4 pr-1 sm:pr-2 flex items-center justify-center text-slate-400 group-focus-within:text-[#febd69] transition-colors">
+                <Search className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+             </div>
+
              <input 
                 type="text" 
                 placeholder={t('search_placeholder')} 
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onFocus={() => setShowHistory(true)}
+                onClick={() => setShowHistory(true)}
                 onKeyDown={handleSearchSubmit}
-                className="flex-1 px-4 text-slate-900 outline-none h-full text-sm rounded-l-full sm:rounded-l-none"
+                className="flex-1 px-1 sm:px-2 text-slate-800 outline-none h-full text-[14px] sm:text-[15px] bg-transparent font-medium placeholder-slate-400 w-full"
              />
              
-             <button onClick={executeSearch} className="bg-red-600 hover:bg-red-700 w-12 flex items-center justify-center transition-colors rounded-r-full">
-                <Search className="w-5 h-5 text-white" />
+             {/* Desktop Category Selector */}
+             <div className="hidden sm:flex items-center h-[70%] my-auto relative cursor-pointer border-l border-slate-200 hover:bg-slate-50 transition-colors group/cat">
+               <select 
+                 value={searchBarCategory}
+                 onChange={(e) => setSearchBarCategory(e.target.value)}
+                 className="bg-transparent text-slate-600 text-[13px] font-bold pl-4 pr-8 outline-none cursor-pointer h-full max-w-[150px] appearance-none z-10"
+               >
+                 {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat === 'All Categories' ? t('all_categories') : cat}</option>)}
+               </select>
+               <div className="absolute right-3 top-0 bottom-0 pointer-events-none flex items-center justify-center text-slate-400 group-hover/cat:text-slate-600 transition-colors">
+                  <ChevronDown className="w-3.5 h-3.5" />
+               </div>
+             </div>
+
+             <button onClick={executeSearch} className="hidden sm:flex px-5 items-center justify-center bg-slate-900 hover:bg-slate-800 text-white transition-colors h-full font-bold text-sm">
+                Search
+             </button>
+             
+             {/* Mobile Explicit Search Button */}
+             <button onClick={executeSearch} className="sm:hidden pr-3 pl-2 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors">
+                <div className="bg-slate-100 p-1.5 rounded-full">
+                  <Search className="w-4 h-4" />
+                </div>
              </button>
 
              {/* Search Autocomplete & Mobile Category Drawer */}
@@ -268,32 +322,36 @@ export default function Header({
 
                   <div className="p-2 sm:p-0 text-slate-900">
                   {/* Trending Queries Based on Location */}
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1 mt-2 flex items-center"><Zap className="w-3 h-3 mr-1 text-red-500" /> Trending in {countryName}</p>
-                  {['smartphones', 'running shoes', 'laptop stand', 'wireless headphones', 'coffee machine'].map((trend) => (
-                    <button 
-                      key={trend}
-                      onClick={() => { 
-                         setSearchInput(trend); 
-                         setShowHistory(false);
-                         if (onSearch) {
-                           onSearch(trend, searchBarCategory);
-                         } else {
-                           navigate(`/user?q=${encodeURIComponent(trend)}`);
-                         }
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors font-medium flex items-center group"
-                    >
-                      <Search className="w-4 h-4 mr-2 text-slate-300 group-hover:text-red-600" /> {trend}
-                      <span className="ml-auto text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-sm group-hover:text-red-600 group-hover:bg-red-50">Hot</span>
-                    </button>
-                  ))}
+                  {filteredTrending.length > 0 && (
+                    <>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1 mt-2 flex items-center"><Zap className="w-3 h-3 mr-1 text-red-500" /> Trending in {countryName}</p>
+                      {filteredTrending.map((trend) => (
+                        <button 
+                          key={trend}
+                          onClick={() => { 
+                             setSearchInput(trend); 
+                             setShowHistory(false);
+                             if (onSearch) {
+                               onSearch(trend, searchBarCategory);
+                             } else {
+                               navigate(`/user?q=${encodeURIComponent(trend)}`);
+                             }
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors font-medium flex items-center group"
+                        >
+                          <Search className="w-4 h-4 mr-2 text-slate-300 group-hover:text-red-600" /> {trend}
+                          <span className="ml-auto text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-sm group-hover:text-red-600 group-hover:bg-red-50">Hot</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
 
                   {/* Search History */}
-                  {searchHistory.length > 0 && (
+                  {filteredHistory.length > 0 && (
                     <>
-                      <div className="h-px bg-slate-100 my-2 mx-3"></div>
+                      {filteredTrending.length > 0 && <div className="h-px bg-slate-100 my-2 mx-3"></div>}
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1 flex items-center mt-2"><Clock className="w-3 h-3 mr-1" /> Recent Searches</p>
-                      {searchHistory.map((hist, i) => (
+                      {filteredHistory.map((hist, i) => (
                         <button 
                           key={i}
                           onClick={() => { 
@@ -311,6 +369,12 @@ export default function Header({
                         </button>
                       ))}
                     </>
+                  )}
+                  
+                  {filteredHistory.length === 0 && filteredTrending.length === 0 && searchInput.trim() !== '' && (
+                    <div className="p-4 text-center text-sm text-slate-500">
+                      Press enter to search for <span className="font-bold text-slate-700">"{searchInput}"</span>
+                    </div>
                   )}
                   </div>
                 </div>

@@ -1143,18 +1143,24 @@ function startServer() {
     try {
       console.log(`[Rainforest AI] Triggering live Amazon UK hunt for: ${search_term}...`);
       
-      // We'll use the 'bestsellers' type for high quality trending items
+      // We'll use the 'search' type for high quality trending items, sorted by reviews
       const rfResponse = await axios.get('https://api.rainforestapi.com/request', {
         params: {
           api_key: RAINFOREST_KEY,
           type: 'search',
           amazon_domain: 'amazon.co.uk',
-          search_term: search_term
+          search_term: search_term,
+          sort_by: 'average_customer_reviews'
         }
       });
 
-      const items = (rfResponse.data.search_results || []).slice(0, 10);
-      console.log(`[Rainforest AI] Discovered ${items.length} live products (capped at 10).`);
+      // Remove the .slice(0, 10) artificial limit to fetch unlimited available top products from page
+      const rawItems = (rfResponse.data.search_results || []);
+      
+      // Filter for highly popular items with excellent reviews (e.g. >= 4.2 stars) to ensure strong market quality
+      const items = rawItems.filter((i: any) => i.rating && i.rating >= 4.2 && i.ratings_total && i.ratings_total > 50);
+      
+      console.log(`[Rainforest AI] Discovered ${items.length} highly-rated live products (Unlimited mode).`);
 
       let imported = 0;
       for (const item of items) {
@@ -1167,11 +1173,11 @@ function startServer() {
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
           args: [
             item.title,
-            `Discover this trending UK Amazon find. Rating: ${item.rating || 'N/A'} from ${item.ratings_total || 0} reviewers.`,
+            `Top Rated UK Best Seller: Discover this highly popular and deeply reviewed item in our ${search_term} collection. Exceptional quality rated ${item.rating} stars by ${item.ratings_total} verified shoppers. Strongly recommended in the UK market.`,
             item.price?.value || 0,
             search_term,
             item.image || "",
-            `Live Rainforest Hunt: High relevance for '${search_term}' discovered on ${new Date().toLocaleDateString()}.`,
+            `Live Rainforest Market Hunt: Strong SEO indexing & exceptional user review metrics for '${search_term}'. Discovered on ${new Date().toLocaleDateString()}.`,
             item.link || `https://www.amazon.co.uk/dp/${item.asin}`
           ]
         });
@@ -1381,9 +1387,15 @@ function startServer() {
     try {
       console.log("[Product AI] Generating product details via Groq...");
       
-      const prompt = `You are an expert UK affiliate marketer and copywriter. You are given an affiliate link, a price (£${price}), and raw product details/context. 
-Your goal is to generate optimized product data to display on "ukstander", a premium UK curation site. 
-Create an engaging, trust-building title, a persuasive description, figure out the best broad e-commerce category (e.g. "Electronics", "Home & Kitchen", "Health & Beauty", "Computers", etc), and generate hashtags.
+      const prompt = `You are an elite UK e-commerce SEO specialist and persuasive copywriter. You are given an affiliate link, a price (£${price}), and raw product details/context. 
+Your goal is to generate highly optimized, conversion-focused product data for "ukstander.shop", a premium UK curation site.
+
+Instructions:
+1. Title: Create an engaging, keyword-rich title optimized for UK Google search. Include relevant UK-specific terms if applicable.
+2. Description: Write a persuasive, benefit-driven product description using perfect UK English (e.g., 'colour', 'organise', 'jewellery', 'value for money'). Focus on solving the customer's problem. Use bullet points for key features if helpful.
+3. Category: Determine the best broad e-commerce category (e.g., "Home & Kitchen", "Health & Beauty", "Tech Gadgets", "Men's Fashion").
+4. Tags: Generate highly relevant SEO hashtags and comma-separated tags reflecting UK search intent.
+
 Return valid JSON ONLY in this format: { "title": "...", "description": "...", "category": "...", "tags": "#tag1, #tag2" }.
 
 Raw Context:
@@ -1411,18 +1423,19 @@ ${rawContext}
         // --- Blog Generation Logic ---
         console.log("[Blog AI] Generating blog post for product...");
         const blogPrompt = `You are an elite UK shopping blogger and SEO strategist for 'ukstander.shop'. 
-Write a high-quality, engaging blog post about this product: "${aiData.title}".
+Write a high-quality, engaging, and in-depth blog post reviewing this product: "${aiData.title}".
 Product Highlights: ${aiData.description}
 Price: £${price}
 Affiliate Link: ${affiliateLink}
 
 Instructions:
-1. FOCUS on the benefits (Kobiya / Pros) but briefly mention limitations to build trust.
-2. Optimize for UK-specific shopping intent (use UK English terms like 'value for money', 'premium quality', etc).
-3. Use a compelling SEO Title and Description.
-4. Include specific hashtags and tags for UK Google ranking.
-5. Format the content in BEAUTIFUL MARKDOWN.
-6. Make sure to include the affiliate link naturally in the post.
+1. Write in perfect UK English (e.g., 'favourite', 'realise', 'cosy', 'programme') with a conversational, trustworthy UK tone.
+2. Structure: Use a catchy H1, engaging introduction, 'Key Features & Benefits', 'Pros & Cons' (be honest to build trust), and a strong 'Final Verdict' conclusion.
+3. UK Intent: Optimize for UK-specific shopping intent. Use phrases like 'brilliant value', 'chuffed', 'top-tier', 'bargain', or 'premium quality'.
+4. SEO Setup: Craft a compelling SEO Title (under 60 characters) and a click-worthy Meta Description (under 160 characters) containing the main keyword.
+5. Markdown formatting: Ensure the 'blogContent' is formatted in BEAUTIFUL MARKDOWN, using headers (H2, H3), bold text, and bullet lists for readability. 
+6. Affiliate Integration: Include the affiliate link naturally within the content using compelling call-to-action (CTA) text.
+7. Tags: Generate relevant SEO tags and hashtags.
 
 Return valid JSON ONLY in this format: 
 { 
@@ -2380,18 +2393,19 @@ CORE INSTRUCTIONS:
         const sliderImgs = String(prod.additional_images || "[]");
 
         const blogPrompt = `You are an elite UK shopping blogger and SEO strategist for 'ukstander.shop'. 
-Write a high-quality, engaging blog post about this product: "${title}".
+Write a high-quality, engaging, and in-depth blog post reviewing this product: "${title}".
 Product Highlights: ${desc}
 Price: £${price}
 Affiliate Link: ${affLink}
 
 Instructions:
-1. FOCUS on the benefits (Kobiya / Pros) but briefly mention limitations to build trust.
-2. Optimize for UK-specific shopping intent (use UK English terms like 'value for money', 'premium quality', etc).
-3. Use a compelling SEO Title and Description.
-4. Include specific hashtags and tags for UK Google ranking.
-5. Format the content in BEAUTIFUL MARKDOWN.
-6. Make sure to include the affiliate link naturally in the post.
+1. Write in perfect UK English (e.g., 'favourite', 'realise', 'cosy', 'programme') with a conversational, trustworthy UK tone.
+2. Structure: Use a catchy H1, engaging introduction, 'Key Features & Benefits', 'Pros & Cons' (be honest to build trust), and a strong 'Final Verdict' conclusion.
+3. UK Intent: Optimize for UK-specific shopping intent. Use phrases like 'brilliant value', 'chuffed', 'top-tier', 'bargain', or 'premium quality'.
+4. SEO Setup: Craft a compelling SEO Title (under 60 characters) and a click-worthy Meta Description (under 160 characters) containing the main keyword.
+5. Markdown formatting: Ensure the 'blogContent' is formatted in BEAUTIFUL MARKDOWN, using headers (H2, H3), bold text, and bullet lists for readability. 
+6. Affiliate Integration: Include the affiliate link naturally within the content using compelling call-to-action (CTA) text.
+7. Tags: Generate relevant SEO tags and hashtags.
 
 Return valid JSON ONLY (no comments) in this format: 
 { 

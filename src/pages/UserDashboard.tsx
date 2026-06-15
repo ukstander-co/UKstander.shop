@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Search, ShieldCheck, Tag, ExternalLink, Filter, Star, Loader2, ArrowDownUp, Heart, Clock, User, ChevronDown, MapPin, Menu, ShoppingCart, Zap, Home, MessageSquare, Bell } from 'lucide-react';
+import { LogOut, Search, ShieldCheck, Tag, ExternalLink, Filter, Star, Loader2, ArrowDownUp, Heart, Clock, User, ChevronDown, MapPin, Menu, ShoppingCart, Zap, Home, MessageSquare, Bell, ChevronRight, ArrowRight } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import Logo from '../components/Logo';
-import ShoppingAssistant from '../components/ShoppingAssistant';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -755,87 +754,35 @@ export default function UserDashboard() {
                 {/* Main Content Area with Amazon-like overlap */}
                 <div className="max-w-[1600px] mx-auto w-full px-3 sm:px-4 -mt-10 sm:-mt-16 md:-mt-20 z-40 relative flex flex-col gap-6 md:gap-8">
 
-                  {/* Bento Grid layout for categories/highlights */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Top Ranked Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-md border border-slate-100 hover:shadow-lg transition-shadow cursor-pointer flex flex-col justify-between" onClick={() => { setSortBy('rating'); executeSearch(); }}>
-                       <div>
-                         <h3 className="text-xl font-bold text-slate-800 mb-4">Top Ranked</h3>
-                         <div className="grid grid-cols-2 gap-2">
-                           {[...products].sort((a,b) => b.rating - a.rating).slice(0,4).map((p) => (
-                             <div 
-                               key={p.id} 
-                               className="bg-slate-50 p-2 border border-slate-100 hover:border-orange-500 rounded-md transition-all cursor-pointer flex flex-col justify-between items-center h-28"
-                               onClick={(e) => { e.stopPropagation(); handleProductView(p); }}
-                             >
-                               <img src={p.image} className="w-full h-16 object-contain mix-blend-multiply" alt={p.name} />
-                               <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{p.name}</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <p className="text-blue-600 hover:text-orange-600 text-sm mt-4 font-semibold">See highly rated deals</p>
-                    </div>
-
-                    {/* Most Popular Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-md border border-slate-100 hover:shadow-lg transition-shadow cursor-pointer flex flex-col justify-between" onClick={() => { setSortBy('relevance'); executeSearch(); }}>
-                       <div>
-                         <h3 className="text-xl font-bold text-slate-800 mb-4">Most Popular</h3>
-                         <div className="grid grid-cols-2 gap-2">
-                           {[...products].sort((a,b) => b.reviews - a.reviews).slice(0,4).map((p) => (
-                             <div 
-                               key={p.id} 
-                               className="bg-slate-50 p-2 border border-slate-100 hover:border-orange-500 rounded-md transition-all cursor-pointer flex flex-col justify-between items-center h-28"
-                               onClick={(e) => { e.stopPropagation(); handleProductView(p); }}
-                             >
-                               <img src={p.image} className="w-full h-16 object-contain mix-blend-multiply" alt={p.name} />
-                               <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{p.name}</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <p className="text-blue-600 hover:text-orange-600 text-sm mt-4 font-semibold">Explore trending items</p>
-                    </div>
-
-                    {/* Max Visitors (Clicks) Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-md border border-slate-100 hover:shadow-lg transition-shadow cursor-pointer flex flex-col justify-between" onClick={() => { setSortBy('clicks'); executeSearch(); }}>
-                       <div>
-                         <h3 className="text-xl font-bold text-slate-800 mb-4">Daily Max Visitors</h3>
-                         <div className="grid grid-cols-2 gap-2">
-                           {[...products].sort((a,b) => (b.clicks||0) - (a.clicks||0)).slice(0,4).map((p) => (
-                             <div 
-                               key={p.id} 
-                               className="bg-slate-50 p-2 border border-slate-100 hover:border-orange-500 rounded-md transition-all cursor-pointer flex flex-col justify-between items-center h-28"
-                               onClick={(e) => { e.stopPropagation(); handleProductView(p); }}
-                             >
-                               <img src={p.image} className="w-full h-16 object-contain mix-blend-multiply" alt={p.name} />
-                               <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{p.name}</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <p className="text-blue-600 hover:text-orange-600 text-sm mt-4 font-semibold">See what others view</p>
-                    </div>
-
-                    {/* Deals Under $50 Card */}
-                    <div className="bg-white p-6 rounded-lg shadow-md border border-slate-100 hover:shadow-lg transition-shadow cursor-pointer flex flex-col justify-between" onClick={() => { setMaxPrice(50); executeSearch(); }}>
-                       <div>
-                         <h3 className="text-xl font-bold text-slate-800 mb-4">Deals Under £50</h3>
-                         <div className="grid grid-cols-2 gap-2">
-                           {products.filter(p => p.price <= 50).slice(0,4).map((p) => (
-                             <div 
-                               key={p.id} 
-                               className="bg-slate-50 p-2 border border-slate-100 hover:border-orange-500 rounded-md transition-all cursor-pointer flex flex-col justify-between items-center h-28"
-                               onClick={(e) => { e.stopPropagation(); handleProductView(p); }}
-                             >
-                               <img src={p.image} className="w-full h-16 object-contain mix-blend-multiply" alt={p.name} />
-                               <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{p.name}</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <p className="text-blue-600 hover:text-orange-600 text-sm mt-4 font-semibold">Shop budget finds</p>
-                    </div>
+                  {/* Premium Bento Grid layout for categories/highlights */}
+                  <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pb-4 sm:pb-0 snap-x snap-mandatory scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0">
+                    {[
+                      { title: 'Top Ranked', subtitle: 'See highly rated deals', items: [...products].sort((a,b) => b.rating - a.rating).slice(0,4), action: () => { setSortBy('rating'); executeSearch(); } },
+                      { title: 'Most Popular', subtitle: 'Explore trending items', items: [...products].sort((a,b) => b.reviews - a.reviews).slice(0,4), action: () => { setSortBy('relevance'); executeSearch(); } },
+                      { title: 'Daily Max Visitors', subtitle: 'See what others view', items: [...products].sort((a,b) => (b.clicks||0) - (a.clicks||0)).slice(0,4), action: () => { setSortBy('clicks'); executeSearch(); } },
+                      { title: 'Deals Under £50', subtitle: 'Shop budget finds', items: products.filter(p => p.price <= 50).slice(0,4), action: () => { setMaxPrice(50); executeSearch(); } }
+                    ].map((card, idx) => (
+                      <div key={idx} className="min-w-[85vw] sm:min-w-0 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-center h-full group/card" onClick={card.action}>
+                         <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-4 tracking-tight">{card.title}</h3>
+                         {card.items.length >= 2 ? (
+                           <div className="grid grid-cols-2 gap-3 flex-1 mb-2">
+                             {card.items.slice(0,4).map((item, i) => (
+                               <div key={i} className="bg-slate-50/80 hover:bg-orange-50/50 border border-slate-100 hover:border-orange-200 transition-colors rounded-xl p-3 flex flex-col items-center justify-between group/item">
+                                 <div className="h-14 sm:h-20 w-full flex items-center justify-center mb-1">
+                                   <img src={item.image} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover/item:scale-110 transition-transform duration-300" alt={item.name} />
+                                 </div>
+                                 <span className="text-[10px] text-slate-500 group-hover/item:text-slate-800 font-medium truncate w-full text-center">{item.name}</span>
+                               </div>
+                             ))}
+                           </div>
+                         ) : (
+                           <div className="flex-1 flex justify-center items-center text-slate-400 text-sm italic">Finding deals...</div>
+                         )}
+                         <p className="text-blue-600 group-hover/card:text-orange-600 text-sm mt-auto font-bold flex items-center gap-1 transition-colors pt-2">
+                           {card.subtitle} <ChevronRight className="w-4 h-4 group-hover/card:translate-x-1 transition-transform" />
+                         </p>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Horizontal Sliders for Categories */}

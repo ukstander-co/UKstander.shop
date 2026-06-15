@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Package, History, Heart, LogOut, Search, Edit3 } from 'lucide-react';
+import { User, Settings, Package, History, Heart, LogOut, Search, Edit3, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Footer from '../components/Footer';
@@ -95,8 +95,9 @@ export default function UserProfile() {
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       <header className="bg-[#0B192C] text-white py-4 px-6 border-b border-white/10 sticky top-0 z-10 flex justify-between items-center shadow-md">
         <Logo dark={true} size="text-2xl" />
-        <button onClick={() => navigate('/user')} className="text-sm font-semibold hover:text-red-400 transition-colors">
-          Back to Shop
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm font-semibold hover:text-red-400 transition-colors bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20">
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
       </header>
 

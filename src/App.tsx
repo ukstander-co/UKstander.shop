@@ -25,6 +25,7 @@ import BlogList from './pages/BlogList';
 import BlogPost from './pages/BlogPost';
 import ForgetPassword from './pages/ForgetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
 import SplashScreen from './components/SplashScreen';
 
 // Automatically fetches the dynamic AI-generated SEO from the backend and updates the DOM
@@ -82,14 +83,14 @@ export default function App() {
             <Toaster position="top-center" reverseOrder={false} />
             <SeoManager />
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/forget-password" element={<ForgetPassword />} />
-              <Route path="/user" element={<UserDashboard />} />
+              <Route path="/" element={<PublicRoute><Navigate to="/login" replace /></PublicRoute>} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+              <Route path="/forget-password" element={<PublicRoute><ForgetPassword /></PublicRoute>} />
+              <Route path="/user" element={<ProtectedRoute reqRole="user"><UserDashboard /></ProtectedRoute>} />
               <Route path="/user/profile" element={<ProtectedRoute reqRole="user"><UserProfile /></ProtectedRoute>} />
-              <Route path="/category/:categoryId" element={<UserDashboard />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/category/:categoryId" element={<ProtectedRoute reqRole="user"><UserDashboard /></ProtectedRoute>} />
+              <Route path="/product/:id" element={<ProtectedRoute reqRole="user"><ProductDetail /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute reqRole="admin"><AdminDashboard /></ProtectedRoute>} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Terms />} />
