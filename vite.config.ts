@@ -12,24 +12,15 @@ export default defineConfig(() => {
       },
     },
     build: {
-      minify: 'esbuild',
+      minify: false,
       cssMinify: true,
       sourcemap: false,
-      chunkSizeWarningLimit: 1200,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
-        maxParallelFileOps: 2,
+        maxParallelFileOps: 1,
+        cache: false,
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('lottie') || id.includes('lottie-web') || id.includes('lottie-react')) {
-                return 'lottie-vendor';
-              }
-              if (id.includes('recharts') || id.includes('d3')) {
-                return 'charts-vendor';
-              }
-              return 'vendor';
-            }
-          }
+          manualChunks: undefined
         }
       }
     },
