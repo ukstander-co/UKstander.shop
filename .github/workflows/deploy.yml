@@ -1,24 +1,99 @@
-name: Production Deployment
+name: Build and Continuous Deployment
 
 on:
   push:
     branches:
-      - main
+      - main  # Triggers when code is pushed or merged into the main branch
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Executing remote ssh commands using password/key
-        uses: appleboy/ssh-action@master
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }} # Ya private key/password
-          port: 22
-          script: |
-            cd /home/ubuntu/UKstander.shop
-            git pull origin main
-            npm install --no-audit --no-fund
-            NODE_OPTIONS="--max-old-space-size=1536" npm run build
-            pm2 restart ukstander-shop
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NODE_OPTIONS: "--max-old-space-size=1536" # Prevent out-of-memory errors on build
+
+      - name: Set up SSH configuration
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create Remote Environment File (.env)
+        run: |
+          # We dynamically generate a clean and secure .env file with production credentials
+          cat <<EOF > .env.production
+          NODE_ENV=production
+          PORT=3000
+          TURSO_DATABASE_URL="${{ secrets.TURSO_DATABASE_URL }}"
+          TURSO_AUTH_TOKEN="${{ secrets.TURSO_AUTH_TOKEN }}"
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          EXTERNAL_SYNC_KEY="${{ secrets.EXTERNAL_SYNC_KEY }}"
+          RAINFOREST_API_KEY="${{ secrets.RAINFOREST_API_KEY }}"
+          GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+          PRODUCT_GROQ_API_KEY="${{ secrets.PRODUCT_GROQ_API_KEY }}"
+          SHOPPING_ASSISTANT_GROQ_API_KEY="${{ secrets.SHOPPING_ASSISTANT_GROQ_API_KEY }}"
+          EOF
+
+      - name: Synchronize build files to the VPS server
+        run: |
+          # Ensure deployment directory exists on the VPS
+          ssh -i ~/.ssh/id_rsa root@${{ secrets.SSH_HOST }} "mkdir -p /var/www/ukstander-shop"
+          
+          # Deploy compiled distribution (Vite build assets & server files)
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            dist/ \
+            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/dist/
+            
+          # Deploy configuration files
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            package.json package-lock.json \
+            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/
+
+          # Deploy generated .env file safely to root of app directory on your server
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            .env.production \
+            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/.env
+
+      - name: Install Production Dependencies and Restart/Start PM2 Process
+        run: |
+          ssh -i ~/.ssh/id_rsa root@${{ secrets.SSH_HOST }} '
+            cd /var/www/ukstander-shop
+            
+            # Install production-only npm packages safely, avoiding devDependencies to keep build minimal
+            npm install --omit=dev --no-audit --no-fund --prefer-offline
+            
+            # Start/Restart modern Node processes seamlessly using PM2
+            if pm2 list | grep -q "ukstander-shop"; then
+              echo "Rebooting existing PM2 process with updated build & environmental variables..."
+              pm2 restart ukstander-shop --update-env
+            else
+              echo "Launching PM2 process for the first time on server..."
+              pm2 start dist/server.cjs --name "ukstander-shop" --env production
+            fi
+            
+            # Save the current state of PM2 processes to withstand potential VPS restarts
+            pm2 save
+            
+            # Display status check
+            pm2 status
+          '
