@@ -762,16 +762,24 @@ export default function UserDashboard() {
                       { title: 'Daily Max Visitors', subtitle: 'See what others view', items: [...products].sort((a,b) => (b.clicks||0) - (a.clicks||0)).slice(0,4), action: () => { setSortBy('clicks'); executeSearch(); } },
                       { title: 'Deals Under £50', subtitle: 'Shop budget finds', items: products.filter(p => p.price <= 50).slice(0,4), action: () => { setMaxPrice(50); executeSearch(); } }
                     ].map((card, idx) => (
-                      <div key={idx} className="min-w-[85vw] sm:min-w-0 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-center h-full group/card" onClick={card.action}>
+                      <div key={idx} className="min-w-[85vw] sm:min-w-0 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col snap-center h-full group/card" onClick={card.action}>
                          <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-4 tracking-tight">{card.title}</h3>
                          {card.items.length >= 2 ? (
                            <div className="grid grid-cols-2 gap-3 flex-1 mb-2">
                              {card.items.slice(0,4).map((item, i) => (
-                               <div key={i} className="bg-slate-50/80 hover:bg-orange-50/50 border border-slate-100 hover:border-orange-200 transition-colors rounded-xl p-3 flex flex-col items-center justify-between group/item">
+                               <div 
+                                 key={i} 
+                                 className="bg-slate-50/80 hover:bg-orange-50/50 hover:shadow-xs border border-slate-100 hover:border-orange-200 active:scale-[0.97] transition-all rounded-xl p-3 flex flex-col items-center justify-between group/item cursor-pointer"
+                                 onClick={(e) => { 
+                                   e.stopPropagation(); 
+                                   handleProductView(item); 
+                                 }}
+                                 title={item.name}
+                               >
                                  <div className="h-14 sm:h-20 w-full flex items-center justify-center mb-1">
                                    <img src={item.image} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover/item:scale-110 transition-transform duration-300" alt={item.name} />
                                  </div>
-                                 <span className="text-[10px] text-slate-500 group-hover/item:text-slate-800 font-medium truncate w-full text-center">{item.name}</span>
+                                 <span className="text-[10px] text-slate-500 group-hover/item:text-slate-800 font-bold truncate w-full text-center">{item.name}</span>
                                </div>
                              ))}
                            </div>
