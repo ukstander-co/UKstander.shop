@@ -20,6 +20,7 @@ import {
 import { motion } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiClient } from '../utils/apiClient';
 
 export default function BlogPost() {
   const { slug } = useParams();
@@ -47,8 +48,7 @@ export default function BlogPost() {
   const [wishlist, setWishlist] = useState<string[]>(getWishlist());
 
   const fetchBlog = () => {
-    fetch(`/api/blogs/${slug}`)
-      .then(res => res.json())
+    apiClient.request(`/api/blogs/${slug}`, { cacheTTL: 15000, useOfflineFallback: true })
       .then(data => {
         setBlog(data);
         setLoading(false);
@@ -62,8 +62,7 @@ export default function BlogPost() {
   useEffect(() => {
     fetchBlog();
     
-    fetch('/api/products')
-      .then(res => res.json())
+    apiClient.request('/api/products', { cacheTTL: 30000, useOfflineFallback: true })
       .then(data => setAllProducts(data))
       .catch(console.error);
   }, [slug]);

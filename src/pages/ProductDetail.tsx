@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Star, ArrowLeft, Tag, ShieldCheck, Truck, ExternalLink, Loader2, Heart, Sparkles } from 'lucide-react';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
+import { apiClient } from '../utils/apiClient';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -44,27 +45,23 @@ export default function ProductDetail() {
   const [submitError, setSubmitError] = useState('');
 
   const cleanId = id ? id.toString().replace('db-', '') : '';
+  const isIdle = false; // Placeholder alignment
 
-  const loadProductDetail = () => {
-    fetch(`/api/products/${cleanId}`)
-      .then(res => {
-        if (!res.ok) throw new Error("Product details not found");
-        return res.json();
-      })
+  const loadProductDetail = (bypassCache = false) => {
+    apiClient.request(`/api/products/${cleanId}`, { cacheTTL: bypassCache ? 0 : 8000, bypassCache, useOfflineFallback: true })
       .then(data => {
         setProduct(data);
         if (!activeImage) {
-          setActiveImage(data.image);
+          setActiveImage(data.image || data.image_url);
         }
         setLoading(false);
       })
       .catch(err => {
         console.error("Direct loader failed, fallback to standard catalog", err);
         // Fallback robust loading
-        fetch('/api/products')
-          .then(res => res.json())
+        apiClient.request('/api/products', { cacheTTL: bypassCache ? 0 : 15000, bypassCache, useOfflineFallback: true })
           .then(data => {
-            const found = data.find((p: any) => p.id.toString() === cleanId || `db-${p.id}` === id?.toString());
+            const found = Array.isArray(data) ? data.find((p: any) => p.id.toString() === cleanId || `db-${p.id}` === id?.toString()) : null;
             if (found) {
               const mapped = {
                 id: `db-${found.id}`,
@@ -120,15 +117,14 @@ export default function ProductDetail() {
     // Real-time synchronization interval of 4000ms for price and metric correctness
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        loadProductDetail();
+        loadProductDetail(true);
       }
     }, 4000);
     return () => clearInterval(interval);
   }, [id, cleanId]);
 
   useEffect(() => {
-    fetch('/api/products')
-      .then(res => res.json())
+    apiClient.request('/api/products', { cacheTTL: 30000, useOfflineFallback: true })
       .then(data => {
         const mapped = Array.isArray(data) ? data.map((p: any) => ({
           id: `db-${p.id}`,

@@ -1854,12 +1854,14 @@ Return valid JSON ONLY in this format:
           sql: "DELETE FROM wishlists WHERE email = ? AND product_id = ?",
           args: [email, productId.toString()]
         });
+        invalidateServerCache('products');
         res.json({ status: "removed", productId });
       } else {
         await db.execute({
           sql: "INSERT INTO wishlists (email, product_id) VALUES (?, ?)",
           args: [email, productId.toString()]
         });
+        invalidateServerCache('products');
         res.json({ status: "added", productId });
       }
     } catch (e) {
@@ -1881,6 +1883,7 @@ Return valid JSON ONLY in this format:
           args: [email, id.toString()]
         });
       }
+      invalidateServerCache('products');
       res.json({ success: true });
     } catch (e) {
       console.error(e);

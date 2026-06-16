@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/MainLayout';
 import { Loader2, Sparkles } from 'lucide-react';
+import { apiClient } from '../utils/apiClient';
 
 export default function InfoPage() {
   const { pageId } = useParams();
@@ -16,8 +17,7 @@ export default function InfoPage() {
       return;
     }
     setLoading(true);
-    fetch(`/api/pages/${pageId}`)
-      .then(res => res.json())
+    apiClient.request(`/api/pages/${pageId}`, { cacheTTL: 120000, useOfflineFallback: true })
       .then(data => {
         if (data && data.content) {
           setDbPage(data);

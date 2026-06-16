@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTranslation } from '../hooks/useTranslation';
+import { apiClient } from '../utils/apiClient';
 
 interface HeaderProps {
   userEmail: string;
@@ -80,8 +81,7 @@ export default function Header({
   }, [searchInput, searchHistory]);
 
   useEffect(() => {
-    fetch('/api/global-settings')
-      .then(res => res.json())
+    apiClient.request('/api/global-settings', { cacheTTL: 60000, useOfflineFallback: true })
       .then(data => setGlobalSettings(data))
       .catch(console.error);
   }, []);

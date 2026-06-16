@@ -4,6 +4,7 @@ import { Calendar, ChevronRight, Tag, MessageSquare, Heart, Sparkles, ChevronDow
 import { motion } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { apiClient } from '../utils/apiClient';
 
 export default function BlogList() {
   const navigate = useNavigate();
@@ -70,11 +71,7 @@ export default function BlogList() {
       }
     }
 
-    fetch('/api/blogs')
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
+    apiClient.request('/api/blogs', { cacheTTL: 30000, useOfflineFallback: true })
       .then(data => {
         if (Array.isArray(data)) {
           console.log("[BlogList] Data received:", data.length, "blogs");
@@ -94,8 +91,7 @@ export default function BlogList() {
         setLoading(false);
       });
 
-    fetch('/api/products')
-      .then(res => res.json())
+    apiClient.request('/api/products', { cacheTTL: 30000, useOfflineFallback: true })
       .then(data => {
         if (Array.isArray(data)) {
           setAllProducts(data);

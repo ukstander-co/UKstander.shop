@@ -7,6 +7,7 @@ import Header from '../components/Header';
 import Logo from '../components/Logo';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTranslation } from '../hooks/useTranslation';
+import { apiClient } from '../utils/apiClient';
 
 const MOCK_PRODUCTS = [
   { id: 1, name: "Dyson V15 Detect Absolute", price: 699.99, category: "Home & Kitchen", rating: 4.8, reviews: 1245, discount: "15% off", image: "https://images.unsplash.com/photo-1558317374-067fb5f30001?auto=format&fit=crop&q=80&w=400", affiliateLink: "https://example.com/buy/1", ai_tags: "#vacuums, #dyson" },
@@ -18,6 +19,8 @@ const MOCK_PRODUCTS = [
   { id: 7, name: "CeraVe Moisturising Cream", price: 12.50, category: "Health & Beauty", rating: 4.8, reviews: 15400, discount: "Daily Essential", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400", affiliateLink: "https://example.com/buy/7", ai_tags: "#skincare, #cerave" },
   { id: 8, name: "Logitech MX Master 3S", price: 89.99, category: "Computers", rating: 4.8, reviews: 4200, discount: "Top Rated", image: "https://images.unsplash.com/photo-1527864550417-7fd91aca2de3?auto=format&fit=crop&q=80&w=400", affiliateLink: "https://example.com/buy/8", ai_tags: "#mouse, #logitech, #productivity" },
 ];
+
+// Local configurations match apiClient definitions
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -66,6 +69,7 @@ export default function UserDashboard() {
 
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [isUserActiveSession, setIsUserActiveSession] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
 
   const activateSession = () => {
     if (!isUserActiveSession) {
@@ -73,6 +77,36 @@ export default function UserDashboard() {
       console.log("[Shadow Copy Engine] Direct user interaction detected. Upgrading lazy session to server-live Active status.");
     }
   };
+
+  // Smart idle engine to throttle background requests on user inactivity
+  useEffect(() => {
+    let idleTimeout: any;
+    const resetIdleTimer = () => {
+      setIsIdle(false);
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        setIsIdle(true);
+        console.log("[Smart Idle Engine] No user activity detected for 30s. Background polling suspended.");
+      }, 30000);
+    };
+
+    window.addEventListener('mousemove', resetIdleTimer);
+    window.addEventListener('keypress', resetIdleTimer);
+    window.addEventListener('click', resetIdleTimer);
+    window.addEventListener('scroll', resetIdleTimer);
+    window.addEventListener('touchstart', resetIdleTimer);
+
+    resetIdleTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', resetIdleTimer);
+      window.removeEventListener('keypress', resetIdleTimer);
+      window.removeEventListener('click', resetIdleTimer);
+      window.removeEventListener('scroll', resetIdleTimer);
+      window.removeEventListener('touchstart', resetIdleTimer);
+      clearTimeout(idleTimeout);
+    };
+  }, []);
 
   useEffect(() => {
     const cachedSettings = localStorage.getItem('shadow_global_settings');
@@ -83,8 +117,7 @@ export default function UserDashboard() {
         console.error("Failed to parse cached global settings", e);
       }
     }
-    fetch('/api/global-settings')
-      .then(res => res.json())
+    apiClient.request('/api/global-settings', { cacheTTL: 60000, useOfflineFallback: true })
       .then(data => {
         setGlobalSettings(data);
         localStorage.setItem('shadow_global_settings', JSON.stringify(data));
@@ -206,9 +239,9 @@ export default function UserDashboard() {
 
   // 3. Continuous Price Alert Polling (In-App Glassmorphism Toast notifications)
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail || isIdle) return;
     const alertInterval = setInterval(() => {
-      if (document.visibilityState !== 'visible') return; // Pause requests if page loaded on background tab
+      if (document.visibilityState !== 'visible' || isIdle) return; // Pause requests if page loaded on background tab or idle
       fetch(`/api/price-alerts?email=${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(alerts => {
@@ -254,13 +287,13 @@ export default function UserDashboard() {
         .catch(console.error);
     }, 15000);
     return () => clearInterval(alertInterval);
-  }, [userEmail]);
+  }, [userEmail, isIdle]);
 
   // 4. Shopping Assistant chat synchrononization/polling when and if admin is takeover connecting
   useEffect(() => {
-    if (!isWidgetOpen || !userEmail || widgetStatus === 'ai') return;
+    if (!isWidgetOpen || !userEmail || widgetStatus === 'ai' || isIdle) return;
     const chatInterval = setInterval(() => {
-      if (document.visibilityState !== 'visible') return; // Pause live chat polling if inactive background tab
+      if (document.visibilityState !== 'visible' || isIdle) return; // Pause live chat polling if inactive background tab or idle
       fetch(`/api/chat-poll?email=${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(srv => {
@@ -274,7 +307,7 @@ export default function UserDashboard() {
         .catch(console.error);
     }, 4500);
     return () => clearInterval(chatInterval);
-  }, [isWidgetOpen, userEmail, widgetStatus]);
+  }, [isWidgetOpen, userEmail, widgetStatus, isIdle]);
 
   // Scroll to bottom of chat automatically when new messages arrive
   useEffect(() => {
@@ -319,7 +352,7 @@ export default function UserDashboard() {
     }
 
     setLoading(true);
-    fetch('/api/products/search-and-rank', {
+    apiClient.request('/api/products/search-and-rank', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -327,9 +360,10 @@ export default function UserDashboard() {
         search: search,
         category: selectedCategory,
         maxPrice: maxPrice
-      })
+      }),
+      cacheTTL: 10000,
+      useOfflineFallback: true
     })
-      .then(res => res.json())
       .then(data => {
         setIsAiGroup(data.isAiGroup || false);
         const resolvedProducts = data.products || [];
@@ -346,8 +380,7 @@ export default function UserDashboard() {
       .catch((e) => {
         console.error("Failed to query search-and-rank API", e);
         // Fallback robust local recovery
-        fetch('/api/products')
-          .then(res => res.json())
+        apiClient.request('/api/products', { cacheTTL: 30000, useOfflineFallback: true })
           .then(standardData => {
             const mapped = standardData.map((p: any) => ({
               id: `db-${p.id}`,
@@ -507,6 +540,12 @@ export default function UserDashboard() {
       }).catch(console.error);
     }
     navigate(`/product/${product.id.toString().replace('db-','')}`, { state: { product } });
+  };
+
+  const handlePrefetch = (id: any) => {
+    if (isIdle || !id) return;
+    const cleanId = id.toString().replace('db-', '');
+    fetch(`/api/products/${cleanId}`).catch(() => {});
   };
 
   const saveSearch = (term: string) => {
@@ -946,7 +985,7 @@ export default function UserDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
-                <div key={product.id} className="bg-white/80 backdrop-blur-xl rounded-2xl border border-slate-100 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer relative" onClick={() => handleProductView(product)}>
+                <div key={product.id} className="bg-white/80 backdrop-blur-xl rounded-2xl border border-slate-100 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer relative" onClick={() => handleProductView(product)} onMouseEnter={() => handlePrefetch(product.id)}>
                   
                   {/* Wishlist Toggle */}
                   <button 
