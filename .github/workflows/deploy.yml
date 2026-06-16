@@ -39,18 +39,28 @@ jobs:
 
       - name: Create Remote Environment File (.env)
         run: |
-          # We dynamically generate a clean and secure .env file with production credentials
+          # Clean raw secrets from any random newlines, carriage returns, or surrounding whitespace
+          CLEAN_DB_URL=$(echo "${{ secrets.TURSO_DATABASE_URL }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_DB_TOKEN=$(echo "${{ secrets.TURSO_AUTH_TOKEN }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_JWT_SECRET=$(echo "${{ secrets.JWT_SECRET }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_EXTERNAL_SYNC_KEY=$(echo "${{ secrets.EXTERNAL_SYNC_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_RAINFOREST_API_KEY=$(echo "${{ secrets.RAINFOREST_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_GROQ_API_KEY=$(echo "${{ secrets.GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_PRODUCT_GROQ_API_KEY=$(echo "${{ secrets.PRODUCT_GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
+          CLEAN_SHOPPING_ASSISTANT_GROQ_API_KEY=$(echo "${{ secrets.SHOPPING_ASSISTANT_GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
+
+          # Generate clean file with sanitized credentials
           cat <<EOF > .env.production
           NODE_ENV=production
           PORT=3000
-          TURSO_DATABASE_URL="${{ secrets.TURSO_DATABASE_URL }}"
-          TURSO_AUTH_TOKEN="${{ secrets.TURSO_AUTH_TOKEN }}"
-          JWT_SECRET="${{ secrets.JWT_SECRET }}"
-          EXTERNAL_SYNC_KEY="${{ secrets.EXTERNAL_SYNC_KEY }}"
-          RAINFOREST_API_KEY="${{ secrets.RAINFOREST_API_KEY }}"
-          GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
-          PRODUCT_GROQ_API_KEY="${{ secrets.PRODUCT_GROQ_API_KEY }}"
-          SHOPPING_ASSISTANT_GROQ_API_KEY="${{ secrets.SHOPPING_ASSISTANT_GROQ_API_KEY }}"
+          TURSO_DATABASE_URL="$CLEAN_DB_URL"
+          TURSO_AUTH_TOKEN="$CLEAN_DB_TOKEN"
+          JWT_SECRET="$CLEAN_JWT_SECRET"
+          EXTERNAL_SYNC_KEY="$CLEAN_EXTERNAL_SYNC_KEY"
+          RAINFOREST_API_KEY="$CLEAN_RAINFOREST_API_KEY"
+          GROQ_API_KEY="$CLEAN_GROQ_API_KEY"
+          PRODUCT_GROQ_API_KEY="$CLEAN_PRODUCT_GROQ_API_KEY"
+          SHOPPING_ASSISTANT_GROQ_API_KEY="$CLEAN_SHOPPING_ASSISTANT_GROQ_API_KEY"
           EOF
 
       - name: Synchronize build files to the VPS server
@@ -84,14 +94,17 @@ jobs:
             # Install production-only npm packages safely, avoiding devDependencies to keep build minimal
             npm install --omit=dev --no-audit --no-fund --prefer-offline
             
-            # Start/Restart modern Node processes seamlessly using PM2
+            # Release port 3000 if it is blocked by any old non-PM2 or orphaned process
+            sudo fuser -k 3000/tcp || true
+            
+            # Always reset PM2 configuration to transition cleanly from "server.ts" to compiled "dist/server.cjs"
             if pm2 list | grep -q "ukstander-shop"; then
-              echo "Rebooting existing PM2 process with updated build & environmental variables..."
-              pm2 restart ukstander-shop --update-env
-            else
-              echo "Launching PM2 process for the first time on server..."
-              pm2 start dist/server.cjs --name "ukstander-shop" --env production
+              echo "Deleting older PM2 script configuration..."
+              pm2 delete ukstander-shop || true
             fi
+            
+            echo "Launching PM2 with the optimized, compiled dist/server.cjs bundle..."
+            pm2 start dist/server.cjs --name "ukstander-shop" --env production
             
             # Save the current state of PM2 processes to withstand potential VPS restarts
             pm2 save
