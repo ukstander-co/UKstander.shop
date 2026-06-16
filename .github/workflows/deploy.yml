@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST || '79.72.94.8' }}
 
     steps:
       - name: Checkout repository
@@ -33,7 +35,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
 
       - name: Create Remote Environment File (.env)
         run: |
@@ -54,29 +56,29 @@ jobs:
       - name: Synchronize build files to the VPS server
         run: |
           # Ensure deployment directory exists on the VPS
-          ssh -i ~/.ssh/id_rsa root@${{ secrets.SSH_HOST }} "mkdir -p /var/www/ukstander-shop"
+          ssh -i ~/.ssh/id_rsa root@$SSH_HOST "mkdir -p /var/www/ukstander-shop"
           
           # Deploy compiled distribution (Vite build assets & server files)
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/id_rsa" \
             dist/ \
-            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/dist/
+            root@$SSH_HOST:/var/www/ukstander-shop/dist/
             
           # Deploy configuration files
           rsync -avz \
             -e "ssh -i ~/.ssh/id_rsa" \
             package.json package-lock.json \
-            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/
+            root@$SSH_HOST:/var/www/ukstander-shop/
 
           # Deploy generated .env file safely to root of app directory on your server
           rsync -avz \
             -e "ssh -i ~/.ssh/id_rsa" \
             .env.production \
-            root@${{ secrets.SSH_HOST }}:/var/www/ukstander-shop/.env
+            root@$SSH_HOST:/var/www/ukstander-shop/.env
 
       - name: Install Production Dependencies and Restart/Start PM2 Process
         run: |
-          ssh -i ~/.ssh/id_rsa root@${{ secrets.SSH_HOST }} '
+          ssh -i ~/.ssh/id_rsa root@$SSH_HOST '
             cd /var/www/ukstander-shop
             
             # Install production-only npm packages safely, avoiding devDependencies to keep build minimal
