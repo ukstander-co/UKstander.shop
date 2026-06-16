@@ -65,11 +65,30 @@ export default function UserDashboard() {
   const [widgetLoading, setWidgetLoading] = useState(false);
 
   const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [isUserActiveSession, setIsUserActiveSession] = useState(false);
+
+  const activateSession = () => {
+    if (!isUserActiveSession) {
+      setIsUserActiveSession(true);
+      console.log("[Shadow Copy Engine] Direct user interaction detected. Upgrading lazy session to server-live Active status.");
+    }
+  };
 
   useEffect(() => {
+    const cachedSettings = localStorage.getItem('shadow_global_settings');
+    if (cachedSettings) {
+      try {
+        setGlobalSettings(JSON.parse(cachedSettings));
+      } catch (e) {
+        console.error("Failed to parse cached global settings", e);
+      }
+    }
     fetch('/api/global-settings')
       .then(res => res.json())
-      .then(data => setGlobalSettings(data))
+      .then(data => {
+        setGlobalSettings(data);
+        localStorage.setItem('shadow_global_settings', JSON.stringify(data));
+      })
       .catch(console.error);
   }, []);
 
@@ -189,6 +208,7 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!userEmail) return;
     const alertInterval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return; // Pause requests if page loaded on background tab
       fetch(`/api/price-alerts?email=${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(alerts => {
@@ -240,6 +260,7 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!isWidgetOpen || !userEmail || widgetStatus === 'ai') return;
     const chatInterval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return; // Pause live chat polling if inactive background tab
       fetch(`/api/chat-poll?email=${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(srv => {
@@ -264,6 +285,39 @@ export default function UserDashboard() {
 
   // 5. Connect Dynamic Search & Personalization Ranking query
   useEffect(() => {
+    const cachedProductsStr = localStorage.getItem('shadow_products_list');
+    const cachedTimeStr = localStorage.getItem('shadow_products_time');
+    const cachedAiGroupStr = localStorage.getItem('shadow_is_ai_group');
+    
+    let cachedData: any[] = [];
+    let isCacheFresh = false;
+    
+    if (cachedProductsStr) {
+      try {
+        cachedData = JSON.parse(cachedProductsStr);
+        if (cachedTimeStr) {
+          const age = Date.now() - parseInt(cachedTimeStr, 10);
+          if (age < 120000) { // 2 minutes
+            isCacheFresh = true;
+          }
+        }
+      } catch (e) {
+        console.error("Shadow Copy parsing failed", e);
+      }
+    }
+
+    // A user is considered "Passive" if they are browsing the default viewport without active filters/searches
+    const isPassive = !search && (!selectedCategory || selectedCategory === "All Categories") && !maxPrice;
+
+    if (isPassive && cachedData.length > 0 && (isCacheFresh || !isUserActiveSession)) {
+      // Use shadow copy instantly, suppressing server-side queries for massive concurrency!
+      setProducts(cachedData);
+      setIsAiGroup(cachedAiGroupStr === 'true');
+      setLoading(false);
+      console.log("[Shadow Copy Engine] Rendered storefront catalog from local browser memory. Server request prevented.");
+      return;
+    }
+
     setLoading(true);
     fetch('/api/products/search-and-rank', {
       method: 'POST',
@@ -278,8 +332,16 @@ export default function UserDashboard() {
       .then(res => res.json())
       .then(data => {
         setIsAiGroup(data.isAiGroup || false);
-        setProducts(data.products || []);
+        const resolvedProducts = data.products || [];
+        setProducts(resolvedProducts);
         setLoading(false);
+
+        // Store as client-side shadow copy for future visitors
+        if (isPassive) {
+          localStorage.setItem('shadow_products_list', JSON.stringify(resolvedProducts));
+          localStorage.setItem('shadow_products_time', Date.now().toString());
+          localStorage.setItem('shadow_is_ai_group', String(data.isAiGroup || false));
+        }
       })
       .catch((e) => {
         console.error("Failed to query search-and-rank API", e);
@@ -302,15 +364,21 @@ export default function UserDashboard() {
               ai_tags: p.ai_tags,
               additionalImages: p.additional_images ? JSON.parse(p.additional_images) : []
             }));
-            setProducts([...mapped, ...MOCK_PRODUCTS.map(p => ({...p, clicks: 120, additionalImages: []}))]);
+            const combined = [...mapped, ...MOCK_PRODUCTS.map(p => ({...p, clicks: 120, additionalImages: []}))];
+            setProducts(combined);
             setLoading(false);
+            
+            if (isPassive) {
+              localStorage.setItem('shadow_products_list', JSON.stringify(combined));
+              localStorage.setItem('shadow_products_time', Date.now().toString());
+            }
           })
           .catch(() => {
             setProducts(MOCK_PRODUCTS.map(p => ({...p, clicks: 200, additionalImages: []})));
             setLoading(false);
           });
       });
-  }, [search, selectedCategory, maxPrice, userEmail]);
+  }, [search, selectedCategory, maxPrice, userEmail, isUserActiveSession]);
 
   const dynamicCategories = useMemo(() => {
     const cats = new Set<string>();
@@ -321,6 +389,7 @@ export default function UserDashboard() {
   }, [products]);
 
   const handleCategorySelect = (category: string) => {
+    activateSession();
     // track category click behavior first
     if (userEmail && category !== "All Categories") {
       fetch('/api/user-interaction', {
@@ -348,6 +417,7 @@ export default function UserDashboard() {
 
   const toggleWishlist = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    activateSession();
     const strId = id.toString();
     const updated = wishlist.includes(strId) ? wishlist.filter(wId => wId !== strId) : [...wishlist, strId];
     setWishlist(updated);
@@ -423,6 +493,7 @@ export default function UserDashboard() {
   };
 
   const handleProductView = (product: any) => {
+    activateSession();
     if (userEmail) {
       fetch('/api/user-interaction', {
         method: 'POST',
@@ -452,6 +523,7 @@ export default function UserDashboard() {
   };
 
   const executeSearch = () => {
+    activateSession();
     saveSearch(searchInput);
     setShowHistory(false);
     setSearch(searchInput);

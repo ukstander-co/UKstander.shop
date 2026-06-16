@@ -50,6 +50,26 @@ export default function BlogList() {
   const [wishlist, setWishlist] = useState<string[]>(getWishlist());
 
   useEffect(() => {
+    const cachedBlogsStr = localStorage.getItem('shadow_blogs_list');
+    const cachedProductsStr = localStorage.getItem('shadow_products_list_blog');
+    
+    if (cachedBlogsStr) {
+      try {
+        setBlogs(JSON.parse(cachedBlogsStr));
+        setLoading(false);
+      } catch (e) {
+        console.error("Failed to parse cached blogs", e);
+      }
+    }
+    
+    if (cachedProductsStr) {
+      try {
+        setAllProducts(JSON.parse(cachedProductsStr));
+      } catch (e) {
+        console.error("Failed to parse cached products", e);
+      }
+    }
+
     fetch('/api/blogs')
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -59,6 +79,7 @@ export default function BlogList() {
         if (Array.isArray(data)) {
           console.log("[BlogList] Data received:", data.length, "blogs");
           setBlogs(data);
+          localStorage.setItem('shadow_blogs_list', JSON.stringify(data));
         } else {
           console.error("[BlogList] Fetched data is not an array:", data);
           setBlogs([]);
@@ -67,13 +88,20 @@ export default function BlogList() {
       })
       .catch(err => {
         console.error("Error fetching blogs:", err);
-        setBlogs([]);
+        if (!cachedBlogsStr) {
+          setBlogs([]);
+        }
         setLoading(false);
       });
 
     fetch('/api/products')
       .then(res => res.json())
-      .then(data => setAllProducts(data))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAllProducts(data);
+          localStorage.setItem('shadow_products_list_blog', JSON.stringify(data));
+        }
+      })
       .catch(console.error);
   }, []);
 

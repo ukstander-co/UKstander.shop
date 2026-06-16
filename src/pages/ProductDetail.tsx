@@ -118,7 +118,11 @@ export default function ProductDetail() {
     }).catch(console.error);
 
     // Real-time synchronization interval of 4000ms for price and metric correctness
-    const interval = setInterval(loadProductDetail, 4000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadProductDetail();
+      }
+    }, 4000);
     return () => clearInterval(interval);
   }, [id, cleanId]);
 

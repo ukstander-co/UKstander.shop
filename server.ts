@@ -1488,6 +1488,48 @@ Return valid JSON ONLY in this format:
     }
   });
 
+  // --- Peak Concurrency High-Performance Server-Side Cache Layer ---
+  interface CacheEntry<T> {
+    data: T;
+    timestamp: number;
+  }
+
+  const serverCache: {
+    products: CacheEntry<any[]> | null;
+    blogs: CacheEntry<any[]> | null;
+    globalSettings: CacheEntry<Record<string, string>> | null;
+  } = {
+    products: null,
+    blogs: null,
+    globalSettings: null,
+  };
+
+  const CACHE_TTLS = {
+    products: 15 * 1000,          // 15 seconds transient cache for product lists with live metrics
+    blogs: 60 * 1000,             // 60 seconds cache for blogs list
+    globalSettings: 5 * 60 * 1000  // 5 minutes cache for static global configuration
+  };
+
+  function invalidateServerCache(type: 'products' | 'blogs' | 'globalSettings') {
+    serverCache[type] = null;
+    console.log(`[Cache Invalidator] Cleared ${type} server memory cache due to database update.`);
+  }
+
+  async function getCachedEnrichedProducts(): Promise<any[]> {
+    const cached = serverCache.products;
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTLS.products)) {
+      return cached.data;
+    }
+    // Pull fresh
+    const result = await db.execute("SELECT * FROM products ORDER BY created_at DESC");
+    const enriched = await enrichProductsWithLiveMetrics(result.rows);
+    serverCache.products = {
+      data: enriched,
+      timestamp: Date.now()
+    };
+    return enriched;
+  }
+
   async function enrichProductsWithLiveMetrics(rows: any[]) {
     try {
       // 1. Fetch reviews to get average rating & actual count
@@ -1559,8 +1601,7 @@ Return valid JSON ONLY in this format:
   // Get Products
   app.get('/api/products', async (req, res) => {
     try {
-      const result = await db.execute("SELECT * FROM products ORDER BY created_at DESC");
-      const enriched = await enrichProductsWithLiveMetrics(result.rows);
+      const enriched = await getCachedEnrichedProducts();
       res.json(enriched);
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch products" });
@@ -1691,6 +1732,8 @@ Return valid JSON ONLY in this format:
         sql: "UPDATE products SET rating = ?, reviews_count = ? WHERE id = ?",
         args: [averageRating, totalCount, cleanId]
       });
+
+      invalidateServerCache('products');
 
       res.json({ success: true, message: "Review and rating submitted successfully!" });
     } catch (e) {
@@ -1982,9 +2025,8 @@ Return valid JSON ONLY in this format:
   app.post('/api/products/search-and-rank', async (req, res) => {
     const { email, search, category, maxPrice } = req.body;
     try {
-      // Pull products from main SQL table
-      const dbProd = await db.execute("SELECT * FROM products ORDER BY created_at DESC");
-      const enrichedProd = await enrichProductsWithLiveMetrics(dbProd.rows);
+      // Pull products from optimized server-side cache
+      const enrichedProd = await getCachedEnrichedProducts();
       let list = enrichedProd.map((p: any) => ({
         id: `db-${p.id}`,
         name: p.ai_title || "Premium product",
@@ -2259,6 +2301,10 @@ CORE INSTRUCTIONS:
   // --- Blog System Endpoints ---
   app.get('/api/blogs', async (req, res) => {
     try {
+      const cached = serverCache.blogs;
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTLS.blogs)) {
+        return res.json(cached.data);
+      }
       // Remove restrictive 6-month filter to ensure all AI-generated content is visible
       const result = await db.execute(`
         SELECT id, title, slug, banner_image, tags, seo_description, created_at, affiliate_link, product_id 
@@ -2269,7 +2315,12 @@ CORE INSTRUCTIONS:
       // Try to backfill missing product links for the UI logic
       const blogs = result.rows.map((b: any) => ({ ...b }));
       
-      console.log(`[PublicBlogList] Fetched ${blogs.length} blogs.`);
+      serverCache.blogs = {
+        data: blogs,
+        timestamp: Date.now()
+      };
+      
+      console.log(`[PublicBlogList] Fetched ${blogs.length} blogs (and cached in-memory).`);
       res.json(blogs);
     } catch (e: any) {
       console.error("[PublicBlogList] Critical Fetch Error:", e);
@@ -2582,6 +2633,7 @@ Return valid JSON ONLY (no comments) in this format:
                 WHERE id = ?`,
           args: [title, content, slug, product_id || null, banner_image || null, slider_images || '[]', affiliate_link || null, tags || '', seo_title || '', seo_description || '', id]
         });
+        invalidateServerCache('blogs');
         res.json({ success: true, message: "Blog updated successfully" });
       } else {
         // Create
@@ -2591,6 +2643,7 @@ Return valid JSON ONLY (no comments) in this format:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
           args: [title, content, slug, product_id || null, banner_image || null, slider_images || '[]', affiliate_link || null, tags || '', seo_title || '', seo_description || '']
         });
+        invalidateServerCache('blogs');
         res.json({ success: true, message: "Blog created successfully" });
       }
     } catch (e: any) {
@@ -2610,6 +2663,7 @@ Return valid JSON ONLY (no comments) in this format:
         sql: "DELETE FROM blogs WHERE id = ?",
         args: [id]
       });
+      invalidateServerCache('blogs');
       res.json({ success: true, message: "Blog deleted successfully" });
     } catch (e) {
       res.status(500).json({ error: "Failed to delete blog" });
@@ -2668,11 +2722,19 @@ Return valid JSON ONLY (no comments) in this format:
   // GET global settings for header/footer
   app.get('/api/global-settings', async (req, res) => {
     try {
+      const cached = serverCache.globalSettings;
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTLS.globalSettings)) {
+        return res.json(cached.data);
+      }
       const result = await db.execute("SELECT * FROM global_settings");
       const settings: Record<string, string> = {};
       result.rows.forEach((row: any) => {
         settings[row.key] = row.value;
       });
+      serverCache.globalSettings = {
+        data: settings,
+        timestamp: Date.now()
+      };
       res.json(settings);
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch global settings" });
@@ -2688,6 +2750,7 @@ Return valid JSON ONLY (no comments) in this format:
           args: [key, typeof val === 'string' ? val : JSON.stringify(val)]
         });
       }
+      invalidateServerCache('globalSettings');
       res.json({ success: true, message: "Global settings updated successfully." });
     } catch (e) {
       console.error("Failed to update global settings", e);
@@ -2890,6 +2953,7 @@ Return valid JSON ONLY (no comments) in this format:
         sql: "UPDATE products SET affiliate_link = ?, image_url = ?, price = ?, category = ?, ai_title = ?, ai_description = ?, ai_tags = ? WHERE id = ?",
         args: [affiliate_link, image_url || "", parseFloat(price) || 0, category, ai_title, ai_description || "", ai_tags || "", cleanId]
       });
+      invalidateServerCache('products');
       res.json({ success: true, message: "Product updated successfully." });
     } catch (e) {
       console.error("Product update failed", e);
@@ -2906,6 +2970,7 @@ Return valid JSON ONLY (no comments) in this format:
         sql: "DELETE FROM products WHERE id = ?",
         args: [cleanId]
       });
+      invalidateServerCache('products');
       res.json({ success: true, message: "Product deleted successfully." });
     } catch (e) {
       res.status(500).json({ error: "Failed to delete product from database." });
