@@ -56,30 +56,30 @@ jobs:
       - name: Synchronize build files to the VPS server
         run: |
           # Ensure deployment directory exists on the VPS
-          ssh -i ~/.ssh/id_rsa root@$SSH_HOST "mkdir -p /var/www/ukstander-shop"
+          ssh -i ~/.ssh/id_rsa ubuntu@$SSH_HOST "mkdir -p /home/ubuntu/ukstander-shop"
           
           # Deploy compiled distribution (Vite build assets & server files)
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/id_rsa" \
             dist/ \
-            root@$SSH_HOST:/var/www/ukstander-shop/dist/
+            ubuntu@$SSH_HOST:/home/ubuntu/ukstander-shop/dist/
             
           # Deploy configuration files
           rsync -avz \
             -e "ssh -i ~/.ssh/id_rsa" \
             package.json package-lock.json \
-            root@$SSH_HOST:/var/www/ukstander-shop/
+            ubuntu@$SSH_HOST:/home/ubuntu/ukstander-shop/
 
           # Deploy generated .env file safely to root of app directory on your server
           rsync -avz \
             -e "ssh -i ~/.ssh/id_rsa" \
             .env.production \
-            root@$SSH_HOST:/var/www/ukstander-shop/.env
+            ubuntu@$SSH_HOST:/home/ubuntu/ukstander-shop/.env
 
       - name: Install Production Dependencies and Restart/Start PM2 Process
         run: |
-          ssh -i ~/.ssh/id_rsa root@$SSH_HOST '
-            cd /var/www/ukstander-shop
+          ssh -i ~/.ssh/id_rsa ubuntu@$SSH_HOST '
+            cd /home/ubuntu/ukstander-shop
             
             # Install production-only npm packages safely, avoiding devDependencies to keep build minimal
             npm install --omit=dev --no-audit --no-fund --prefer-offline
