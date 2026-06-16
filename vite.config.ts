@@ -15,29 +15,14 @@ export default defineConfig(() => {
       minify: 'esbuild' as const,
       cssMinify: true,
       sourcemap: false,
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 2500,
       rollupOptions: {
         maxParallelFileOps: 1,
         cache: false,
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('scheduler')) {
-                return 'vendor-react';
-              }
-              if (id.includes('recharts') || id.includes('d3') || id.includes('victory') || id.includes('internmap')) {
-                return 'vendor-charts';
-              }
-              if (id.includes('lottie-web') || id.includes('lottie-react')) {
-                return 'vendor-lottie';
-              }
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
-              }
-              if (id.includes('react-markdown') || id.includes('micromark') || id.includes('unist') || id.includes('mdast') || id.includes('vfile')) {
-                return 'vendor-markdown';
-              }
-              return 'vendor-libs';
+              return 'vendor';
             }
           }
         }
