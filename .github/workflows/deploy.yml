@@ -48,8 +48,6 @@ jobs:
           CLEAN_GROQ_API_KEY=$(echo "${{ secrets.GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
           CLEAN_PRODUCT_GROQ_API_KEY=$(echo "${{ secrets.PRODUCT_GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
           CLEAN_SHOPPING_ASSISTANT_GROQ_API_KEY=$(echo "${{ secrets.SHOPPING_ASSISTANT_GROQ_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
-          
-          # NEW VARIABLES
           CLEAN_GEMINI_API_KEY=$(echo "${{ secrets.GEMINI_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
           CLEAN_IMPROVMX_API_KEY=$(echo "${{ secrets.IMPROVMX_API_KEY }}" | tr -d '\r' | tr -d '\n' | xargs)
           CLEAN_APP_URL=$(echo "${{ secrets.APP_URL }}" | tr -d '\r' | tr -d '\n' | xargs)
@@ -66,7 +64,6 @@ jobs:
           GROQ_API_KEY="$CLEAN_GROQ_API_KEY"
           PRODUCT_GROQ_API_KEY="$CLEAN_PRODUCT_GROQ_API_KEY"
           SHOPPING_ASSISTANT_GROQ_API_KEY="$CLEAN_SHOPPING_ASSISTANT_GROQ_API_KEY"
-          
           GEMINI_API_KEY="$CLEAN_GEMINI_API_KEY"
           IMPROVMX_API_KEY="$CLEAN_IMPROVMX_API_KEY"
           APP_URL="$CLEAN_APP_URL"
@@ -100,13 +97,13 @@ jobs:
           ssh -i ~/.ssh/id_rsa ubuntu@$SSH_HOST '
             cd /home/ubuntu/ukstander-shop
             
-            # Install production-only npm packages safely
+            # Install production-only npm packages safely, avoiding devDependencies to keep build minimal
             npm install --omit=dev --no-audit --no-fund --prefer-offline
             
             # Release port 3000 if it is blocked by any old non-PM2 or orphaned process
             sudo fuser -k 3000/tcp || true
             
-            # Always reset PM2 configuration to transition cleanly 
+            # Always reset PM2 configuration to transition cleanly from "server.ts" to compiled "dist/server.cjs"
             if pm2 list | grep -q "ukstander-shop"; then
               echo "Deleting older PM2 script configuration..."
               pm2 delete ukstander-shop || true
@@ -115,7 +112,7 @@ jobs:
             echo "Launching PM2 with the optimized, compiled dist/server.cjs bundle..."
             pm2 start dist/server.cjs --name "ukstander-shop" --env production
             
-            # Save the current state of PM2 processes
+            # Save the current state of PM2 processes to withstand potential VPS restarts
             pm2 save
             
             # Display status check
