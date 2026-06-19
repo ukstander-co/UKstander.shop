@@ -4264,6 +4264,71 @@ Keep your answers under 3 sentences for better readability, unless they ask for 
     }
   });
 
+  // ==========================================
+  // SEO ROUTES (robots.txt & sitemap.xml)
+  // ==========================================
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+
+Sitemap: ${process.env.APP_URL || 'https://ukstander.shop'}/sitemap.xml`);
+  });
+
+  app.get('/sitemap.xml', async (req, res) => {
+    try {
+      const baseUrl = process.env.APP_URL || 'https://ukstander.shop';
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+      
+      // Static routes
+      const staticRoutes = [
+        '/',
+        '/about',
+        '/contact'
+      ];
+
+      for (const route of staticRoutes) {
+        xml += `
+  <url>
+    <loc>${baseUrl}${route}</loc>
+    <changefreq>daily</changefreq>
+    <priority>${route === '/' ? '1.0' : '0.8'}</priority>
+  </url>`;
+      }
+
+      // Dynamic Category Routes
+      const categoriesRes = await db.execute("SELECT DISTINCT original_category FROM products WHERE original_category IS NOT NULL AND original_category != ''");
+      for (const catRow of categoriesRes.rows) {
+        const cat = catRow.original_category as string;
+        xml += `
+  <url>
+    <loc>${baseUrl}/category/${encodeURIComponent(cat)}</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+      }
+
+      // Dynamic Product Routes
+      const productsRes = await db.execute("SELECT id, created_at FROM products ORDER BY id DESC");
+      for (const prodRow of productsRes.rows) {
+        xml += `
+  <url>
+    <loc>${baseUrl}/product/${prodRow.id}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+      }
+
+      xml += `\n</urlset>`;
+      
+      res.header('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (err) {
+      console.error("Sitemap Generation Error:", err);
+      res.status(500).end();
+    }
+  });
+
   // Safe environment determination:
   // If we are running the compiled production bundle file (dist/server.cjs), or node env is prod, or on vercel:
   const isProductionMode = process.env.NODE_ENV === 'production' || 
