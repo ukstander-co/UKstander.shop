@@ -2110,8 +2110,8 @@ function startServer() {
     try {
       const hashedPw = await bcrypt.hash(password, 10);
       await db.execute({
-        sql: "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-        args: [name, email, hashedPw]
+        sql: "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+        args: [name, email, hashedPw, 'user']
       });
       res.status(201).json({ message: 'User created successfully' });
     } catch (err: any) {
