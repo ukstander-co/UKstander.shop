@@ -12,7 +12,8 @@ import {
 import { useEffect, useState, lazy, Suspense } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "react-hot-toast";
-import { LazyMotion, domAnimation } from "motion/react";
+import { LazyMotion, domAnimation, AnimatePresence } from "motion/react";
+import SplashScreen from "./components/SplashScreen";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 
@@ -73,11 +74,18 @@ function SeoManager() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <HelmetProvider>
       <Router>
         <LazyMotion features={domAnimation}>
-        <main className="w-full min-h-screen flex flex-col">
+          <AnimatePresence mode="wait">
+            {showSplash && (
+              <SplashScreen onComplete={() => setShowSplash(false)} />
+            )}
+          </AnimatePresence>
+          <main className="w-full min-h-screen flex flex-col">
           <Toaster position="top-center" reverseOrder={false} />
           <SeoManager />
           <Suspense
