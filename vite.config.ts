@@ -19,6 +19,14 @@ export default defineConfig(() => {
       rollupOptions: {
         maxParallelFileOps: 1,
         cache: false,
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'motion': ['motion/react', 'framer-motion'],
+            'ui': ['lucide-react', 'react-hot-toast', 'react-helmet-async'],
+            'charts': ['recharts']
+          }
+        }
       }
     },
     server: {
