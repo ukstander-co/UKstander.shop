@@ -4297,9 +4297,9 @@ Sitemap: ${process.env.APP_URL || 'https://ukstander.shop'}/sitemap.xml`);
       }
 
       // Dynamic Category Routes
-      const categoriesRes = await db.execute("SELECT DISTINCT original_category FROM products WHERE original_category IS NOT NULL AND original_category != ''");
+      const categoriesRes = await db.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''");
       for (const catRow of categoriesRes.rows) {
-        const cat = catRow.original_category as string;
+        const cat = catRow.category as string;
         xml += `
   <url>
     <loc>${baseUrl}/category/${encodeURIComponent(cat)}</loc>
