@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, ChevronRight, Tag, MessageSquare, Heart, Sparkles, ChevronDown, ExternalLink } from 'lucide-react';
-import { motion } from 'motion/react';
+import { m as motion } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { apiClient } from '../utils/apiClient';
