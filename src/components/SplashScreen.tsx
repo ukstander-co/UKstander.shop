@@ -1,29 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import Lottie from 'lottie-react';
+import React, { useEffect } from 'react';
+import { motion } from 'motion/react';
 import { ShoppingBag } from 'lucide-react';
 
-// Using a high-quality shopping/loading animation from a stable CDN
-const LOADING_LOTTIE_URL = "https://lottie.host/5053cfb5-6a56-4c54-a69c-29369f69741e/kZk7B1AEmI.json";
-
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
-  const [animationData, setAnimationData] = useState<any>(null);
-
   useEffect(() => {
-    fetch(LOADING_LOTTIE_URL)
-      .then(res => {
-        if (!res.ok) throw new Error('Fetch failed');
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          return res.json();
-        }
-        throw new Error('Not JSON');
-      })
-      .then(data => setAnimationData(data))
-      .catch((err) => {
-        console.warn("Lottie loading failed, using fallback icon", err);
-      });
-
     const timer = setTimeout(() => {
       onComplete();
     }, 2500); // Show for 2.5 seconds
@@ -49,15 +29,9 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           initial={{ y: 20, opacity: 0, scale: 0.8 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="w-48 h-48 md:w-64 md:h-64"
+          className="w-48 h-48 md:w-64 md:h-64 flex items-center justify-center"
         >
-          {animationData ? (
-             <Lottie animationData={animationData} loop={true} />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-               <ShoppingBag className="w-24 h-24 text-indigo-500 animate-bounce" />
-            </div>
-          )}
+           <ShoppingBag className="w-24 h-24 text-indigo-500 animate-bounce" />
         </motion.div>
 
         <motion.div

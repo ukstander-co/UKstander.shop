@@ -14,7 +14,7 @@ export default defineConfig(() => {
     build: {
       minify: 'esbuild' as const,
       cssMinify: true,
-      sourcemap: false,
+      sourcemap: true,
       chunkSizeWarningLimit: 2500,
       rollupOptions: {
         maxParallelFileOps: 1,

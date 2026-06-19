@@ -1,0 +1,16 @@
+# UKStander - Curated Deals Dashboard
+
+Welcome to UKStander's LLM specification file.
+
+UKStander provides a curated selection of affiliate products and daily deals for UK consumers.
+
+## Resources
+- [Home Page](https://ukstander.shop/)
+- [Login](https://ukstander.shop/login)
+- [Signup](https://ukstander.shop/signup)
+- [Sitemap](https://ukstander.shop/sitemap.xml)
+- [About Us](https://ukstander.shop/about)
+- [Contact Us](https://ukstander.shop/contact)
+
+## APIs
+We do not offer a public API at this time, but users can access curated deals through our web application.

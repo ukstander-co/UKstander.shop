@@ -78,7 +78,7 @@ export default function App() {
         </AnimatePresence>
         
         {!showSplash && (
-          <>
+          <main className="w-full min-h-screen flex flex-col">
             <Toaster position="top-center" reverseOrder={false} />
             <SeoManager />
             <Routes>
@@ -101,7 +101,7 @@ export default function App() {
               <Route path="/blog" element={<BlogList />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
             </Routes>
-          </>
+          </main>
         )}
       </Router>
     </HelmetProvider>

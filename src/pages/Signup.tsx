@@ -144,8 +144,8 @@ export default function Signup() {
            >
               <div className="bg-white p-8 sm:p-10 rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-slate-100">
                 <div className="mb-10 text-center lg:text-left">
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-2">Create Account</h2>
-                  <p className="text-slate-500 text-sm font-medium">Join the aggregated best-seller ranking hub.</p>
+                  <h2 className="text-2xl sm:text-3xl font-black text-[#0B192C] tracking-tight mb-2">Create Account</h2>
+                  <p className="text-slate-600 text-sm font-medium">Join the aggregated best-seller ranking hub.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -220,9 +220,9 @@ export default function Signup() {
               </div>
               
               {/* Trust Badge Mobile */}
-              <div className="mt-8 flex items-center justify-center gap-2 text-slate-400 lg:hidden">
+              <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 lg:hidden text-center opacity-80">
                  <ShieldCheck className="w-4 h-4" />
-                 <span className="text-xs font-bold uppercase tracking-widest">Amazon Affiliate Verified</span>
+                 <span className="text-xs font-bold uppercase tracking-widest text-slate-600">Amazon Affiliate Verified</span>
               </div>
            </motion.div>
         </div>
