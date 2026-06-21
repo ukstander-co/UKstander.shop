@@ -402,8 +402,31 @@ export default function ProductDetail() {
                     <Tag className="w-4 h-4 mr-1.5 animate-pulse text-[#febd69]" /> {product.discount || "Exclusive Deal"}
                   </div>
                   
-                   <div className="w-full h-auto overflow-hidden flex flex-col items-center justify-center p-6 m-0 border-b border-slate-100">
-                    <img src={activeImage || product.image} alt={activeImageAlt} className="max-h-[450px] object-contain transition-all duration-300 mix-blend-multiply" />
+                  <div 
+                    className="w-full h-auto overflow-hidden flex flex-col items-center justify-center p-6 m-0 border-b border-slate-100 relative group"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = ((e.clientX - rect.left) / rect.width) * 100;
+                      const y = ((e.clientY - rect.top) / rect.height) * 100;
+                      e.currentTarget.style.setProperty('--x', `${x}%`);
+                      e.currentTarget.style.setProperty('--y', `${y}%`);
+                    }}
+                  >
+                    {(activeImage || product.image)?.match(/\.(mp4|webm|ogg)$/i) ? (
+                      <video src={activeImage || product.image} autoPlay muted controls loop className="max-h-[450px] object-contain w-full" />
+                    ) : (
+                      <>
+                        <img src={activeImage || product.image} alt={activeImageAlt} className="max-h-[450px] object-contain mix-blend-multiply group-hover:opacity-0 transition-opacity" />
+                        <div 
+                          className="absolute inset-0 z-20 mix-blend-multiply opacity-0 group-hover:opacity-100 transition-opacity bg-no-repeat pointer-events-none"
+                          style={{
+                            backgroundImage: `url(${activeImage || product.image})`,
+                            backgroundPosition: 'var(--x, 50%) var(--y, 50%)',
+                            backgroundSize: '250%' // Zoom factor
+                          }}
+                        />
+                      </>
+                    )}
                   </div>
                   
                   {/* Thumbnails */}
@@ -414,7 +437,11 @@ export default function ProductDetail() {
                         className={`w-20 h-20 rounded-xl border-2 p-2 cursor-pointer transition-all shrink-0 bg-slate-50 flex items-center justify-center ${activeImage === product.image ? 'border-red-600 shadow-md' : 'border-transparent hover:border-slate-300'}`}
                         id="desktop-thumb-main"
                       >
-                         <img src={product.image} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Primary Angle`} />
+                         {product.image?.match(/\.(mp4|webm|ogg)$/i) ? (
+                           <video src={product.image} className="w-full h-full object-cover rounded" />
+                         ) : (
+                           <img src={product.image} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Primary Angle`} />
+                         )}
                       </button>
                       {product.additionalImages && Array.isArray(product.additionalImages) && product.additionalImages.map((img: string, i: number) => (
                         <button 
@@ -423,7 +450,11 @@ export default function ProductDetail() {
                           className={`w-20 h-20 rounded-xl border-2 p-2 cursor-pointer transition-all shrink-0 bg-slate-50 flex items-center justify-center ${activeImage === img ? 'border-red-600 shadow-md' : 'border-transparent hover:border-slate-300'}`}
                           id={`desktop-thumb-${i}`}
                         >
-                           <img src={img} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Alternate Angle ${i + 1}`} />
+                           {img.match(/\.(mp4|webm|ogg)$/i) ? (
+                             <video src={img} className="w-full h-full object-cover rounded" />
+                           ) : (
+                             <img src={img} className="w-full h-full object-contain mix-blend-multiply" alt={`${product.name} - Alternate Angle ${i + 1}`} />
+                           )}
                         </button>
                       ))}
                     </div>
