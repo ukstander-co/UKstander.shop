@@ -49,13 +49,9 @@ export default function ProductDetail() {
   const isIdle = false; // Placeholder alignment
 
   const cleanTagsList = useMemo(() => {
-    const rawTags = product?.ai_tags || product?.tags;
-    if (!rawTags) return [];
-    return rawTags
-      .split(',')
-      .map((tag: string) => tag.replace(/#/g, '').trim())
-      .filter((tag: string) => tag.length > 0);
-  }, [product]);
+    // Disable visual display to users; tags remain active in backend and DOM header metadata
+    return [];
+  }, []);
 
   const mockRatingValue = useMemo(() => {
     if (!product) return "4.8";
@@ -221,6 +217,35 @@ export default function ProductDetail() {
   }, [id, cleanId]);
 
   useEffect(() => {
+    if (product) {
+      const slug = slugify(product.name || product.ai_title || "");
+      const expectedId = `${cleanId}${slug ? `-${slug}` : ""}`;
+      if (id && expectedId && id !== expectedId) {
+        navigate(`/product/${expectedId}`, { replace: true, state: { product } });
+      }
+
+      // Dynamic SEO tag injection to DOM for search engines/crawlers
+      document.title = `${product.name} | UKStander Premium Deals`;
+      
+      let metaKeywords = document.querySelector('meta[name="keywords"]');
+      if (!metaKeywords) {
+        metaKeywords = document.createElement('meta');
+        metaKeywords.setAttribute('name', 'keywords');
+        document.head.appendChild(metaKeywords);
+      }
+      metaKeywords.setAttribute('content', product.ai_tags || '');
+
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute('content', product.description || '');
+    }
+  }, [product, id, cleanId, navigate]);
+
+  useEffect(() => {
     apiClient.request('/api/products', { cacheTTL: 30000, useOfflineFallback: true })
       .then(data => {
         const mapped = Array.isArray(data) ? data.map((p: any) => ({
@@ -379,13 +404,6 @@ export default function ProductDetail() {
                   
                    <div className="w-full h-auto overflow-hidden flex flex-col items-center justify-center p-6 m-0 border-b border-slate-100">
                     <img src={activeImage || product.image} alt={activeImageAlt} className="max-h-[450px] object-contain transition-all duration-300 mix-blend-multiply" />
-                    
-                    {/* Visual Google crawling alt tag compliance section */}
-                    <div className="mt-4 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-center flex items-center justify-center gap-1.5" id="desktop-alt-tag-indicator">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Google.co.uk Crawl Label:</span>
-                      <span className="text-[10px] font-mono font-medium text-slate-600 italic">"{activeImageAlt}"</span>
-                    </div>
                   </div>
                   
                   {/* Thumbnails */}
@@ -445,26 +463,6 @@ export default function ProductDetail() {
                   <div className="prose prose-slate text-slate-650 mb-8 max-w-none text-sm leading-relaxed font-medium whitespace-pre-line">
                     {product.description || "Premium quality product recommended by our expert curators. Designed to meet the highest standards and everyday needs. Check the retailer website for full specifications."}
                   </div>
-
-                  {cleanTagsList.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-8 items-center border-t border-b border-slate-100/70 py-4">
-                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center pr-2">
-                        <Tag className="w-3.5 h-3.5 mr-1 text-slate-400 animate-pulse" /> SEO Tags:
-                      </span>
-                      {cleanTagsList.map((tag, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            navigate(`/user?q=${encodeURIComponent(tag)}`);
-                          }}
-                          className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-full transition-all active:scale-95 cursor-pointer"
-                          id={`product-tag-${idx}`}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="mt-auto space-y-6 pt-6 border-t border-slate-100">
                     {/* Trust Guarantee Box */}
@@ -630,12 +628,7 @@ export default function ProductDetail() {
                    <img src={activeImage || product.image} alt={activeImageAlt} className="max-h-full max-w-full object-contain p-2 mix-blend-multiply" />
                  </div>
 
-                  {/* Visual Google crawling alt tag compliance section */}
-                  <div className="w-full mt-2.5 mb-4 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-center flex items-center justify-center gap-1.5 animate-fade-in" id="mobile-alt-tag-indicator">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Crawl Alt:</span>
-                    <span className="text-[9px] font-mono font-bold text-slate-600 italic truncate max-w-[175px]">"{activeImageAlt}"</span>
-                  </div>
+
 
                  {/* Interactive Thumbnail Grid */}
                  {((product.image) || (product.additionalImages && product.additionalImages.length > 0)) && (
