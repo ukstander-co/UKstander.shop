@@ -3382,10 +3382,12 @@ CORE INSTRUCTIONS:
         const productUrl = `https://ukstander.shop/product/${product.id}`;
         const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
         const description = product.ai_description || `Premium quality ${product.category || 'curation'} item handpicked for UKStander shoppers. Great value and top customer reviews.`;
+        const title = product.ai_title || 'Premium UK Product';
+        const categoryUpper = (product.category || '').toUpperCase();
         
         // Extract brand name if possible, or default to UKStander
         let brand = 'UKStander';
-        const titleLower = (product.ai_title || '').toLowerCase();
+        const titleLower = title.toLowerCase();
         if (titleLower.includes('dyson')) brand = 'Dyson';
         else if (titleLower.includes('sony')) brand = 'Sony';
         else if (titleLower.includes('ninja')) brand = 'Ninja';
@@ -3394,6 +3396,7 @@ CORE INSTRUCTIONS:
         else if (titleLower.includes('samsung')) brand = 'Samsung';
         else if (titleLower.includes('cerave')) brand = 'CeraVe';
         else if (titleLower.includes('logitech')) brand = 'Logitech';
+        else if (titleLower.includes('roka')) brand = 'ROKA London';
 
         // Additional Image Links
         let additionalImagesXml = '';
@@ -3407,11 +3410,61 @@ CORE INSTRUCTIONS:
             }
           } catch(err) {}
         }
+
+        // 1. Predefined Google Product Category Mapping
+        let googleProductCategory = 'Apparel & Accessories';
+        const cLower = (product.category || '').toLowerCase();
+        const dLower = description.toLowerCase();
+        if (cLower.includes('bag') || cLower.includes('accessory') || titleLower.includes('bag') || titleLower.includes('backpack') || titleLower.includes('crossbody') || titleLower.includes('wallet')) {
+          googleProductCategory = 'Apparel & Accessories > Handbags, Wallets & Cases > Handbags';
+        } else if (cLower.includes('clothing') || cLower.includes('apparel') || cLower.includes('fashion') || titleLower.includes('shirt') || titleLower.includes('dress') || titleLower.includes('jacket') || titleLower.includes('coat') || titleLower.includes('socks')) {
+          googleProductCategory = 'Apparel & Accessories > Clothing';
+        } else if (cLower.includes('computer') || titleLower.includes('laptop') || titleLower.includes('pc') || titleLower.includes('macbook') || titleLower.includes('keyboard') || titleLower.includes('mouse')) {
+          googleProductCategory = 'Electronics > Computers';
+        } else if (cLower.includes('electronics') || titleLower.includes('headphone') || titleLower.includes('speaker') || titleLower.includes('earphone') || titleLower.includes('tv') || titleLower.includes('audio')) {
+          googleProductCategory = 'Electronics > Audio';
+        } else if (cLower.includes('beauty') || cLower.includes('health') || titleLower.includes('cream') || titleLower.includes('serum') || titleLower.includes('skincare') || titleLower.includes('shampoo')) {
+          googleProductCategory = 'Health & Beauty > Personal Care > Cosmetics > Skin Care';
+        } else if (cLower.includes('home') || cLower.includes('kitchen') || titleLower.includes('ninja') || titleLower.includes('blender') || titleLower.includes('kettle') || titleLower.includes('cup') || titleLower.includes('pan') || titleLower.includes('pot') || titleLower.includes('coffee')) {
+          googleProductCategory = 'Home & Garden > Kitchen & Dining > Kitchen Appliances';
+        }
+
+        // 2. Extract Color
+        let color = 'Multicolor';
+        const colorsList = [
+          'black', 'white', 'grey', 'gray', 'red', 'blue', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 
+          'silver', 'gold', 'navy', 'cream', 'beige', 'khaki', 'olive', 'teal', 'magenta', 'charcoal', 'maroon'
+        ];
+        const searchPool = `${titleLower} ${dLower}`;
+        for (const possibleColor of colorsList) {
+          if (searchPool.includes(possibleColor)) {
+            color = possibleColor.charAt(0).toUpperCase() + possibleColor.slice(1);
+            break;
+          }
+        }
+
+        // 3. Extract Gender
+        let gender = 'unisex';
+        if (searchPool.includes('women') || searchPool.includes('woman') || searchPool.includes('female') || searchPool.includes('girl') || searchPool.includes('her')) {
+          gender = 'female';
+        } else if (searchPool.includes('men') || searchPool.includes('man') || searchPool.includes('male') || searchPool.includes('boy') || searchPool.includes('him')) {
+          gender = 'male';
+        }
+
+        // 4. Extract Age Group
+        let ageGroup = 'adult';
+        if (searchPool.includes('baby') || searchPool.includes('newborn') || searchPool.includes('infant')) {
+          ageGroup = 'infant';
+        } else if (searchPool.includes('toddler') || searchPool.includes('nursery')) {
+          ageGroup = 'toddler';
+        } else if (searchPool.includes('child') || searchPool.includes('kid') || searchPool.includes('children') || searchPool.includes('boy') || searchPool.includes('girl')) {
+          ageGroup = 'kids';
+        }
         
         return `
     <item>
       <g:id>db-prod-${product.id}</g:id>
-      <g:title>${escapeXml(product.ai_title || 'Premium UK Product')}</g:title>
+      <g:title>${escapeXml(title)}</g:title>
       <g:description>${escapeXml(description)}</g:description>
       <g:link>${escapeXml(productUrl)}</g:link>
       <g:image_link>${escapeXml(imageUrl)}</g:image_link>
@@ -3420,7 +3473,21 @@ CORE INSTRUCTIONS:
       <g:availability>in_stock</g:availability>
       <g:price>${parseFloat(product.price || 0).toFixed(2)} GBP</g:price>
       <g:brand>${escapeXml(brand)}</g:brand>
-      <g:google_product_category>${escapeXml(product.category || 'Shopping')}</g:google_product_category>
+      <g:google_product_category>${escapeXml(googleProductCategory)}</g:google_product_category>
+      <g:color>${escapeXml(color)}</g:color>
+      <g:gender>${escapeXml(gender)}</g:gender>
+      <g:age_group>${escapeXml(ageGroup)}</g:age_group>
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:shipping>
+        <g:country>GB</g:country>
+        <g:service>Standard UK Shipping</g:service>
+        <g:price>0.00 GBP</g:price>
+      </g:shipping>
+      <g:shipping>
+        <g:country>US</g:country>
+        <g:service>Standard Royal Mail</g:service>
+        <g:price>0.00 GBP</g:price>
+      </g:shipping>
     </item>`;
       }).join('\n');
       
