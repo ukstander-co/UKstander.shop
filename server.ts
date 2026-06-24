@@ -9,14 +9,20 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import Groq from 'groq-sdk';
 import cron from 'node-cron';
-// Initialize array of Groq keys for step-by-step fallback
+import { GoogleGenAI } from '@google/genai';
+
+// Initialize Gemini client globally with a dynamic getter helper below, to support both DB keys and process.env keys.
+
+// Initialize array of Groq keys for step-by-step fallback (filtering only actual Groq keys starting with gsk_)
 const groqKeys = [
   process.env.GEMINI_API_KEY,      // User might have put Groq key here
   process.env.GROQ_API_KEY,
   process.env.PRODUCT_GROQ_API_KEY,
   process.env.BLOG_GROQ_API_KEY,
   "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" // Fallback built-in key
-].filter(Boolean) as string[];
+]
+  .filter(Boolean)
+  .filter(key => typeof key === 'string' && key.startsWith('gsk_')) as string[];
 
 class AICompatibilityClient {
   private clientName: string;
@@ -44,7 +50,122 @@ class AICompatibilityClient {
 
           let lastError: any = null;
 
-          // 1. Try Groq API keys step-by-step (As requested by user)
+          // 1. Try DeepSeek API key from global settings or process.env if it is set and valid
+          try {
+            const dsRows = await db.execute("SELECT key, value FROM global_settings WHERE key = 'deepseek_api_key'");
+            const dsKeyVal = dsRows.rows[0]?.value;
+            let dsKey = typeof dsKeyVal === 'string' ? dsKeyVal : '';
+            if (!dsKey || dsKey.trim() === '' || dsKey === 'YOUR_DEEPSEEK_API_KEY') {
+              dsKey = process.env.DEEPSEEK_API_KEY || '';
+            }
+
+            if (dsKey && dsKey.trim() !== '' && !dsKey.includes('YOUR_DEEPSEEK_API_KEY')) {
+              console.log(`[AI Compatibility] ${this.clientName} route calling DeepSeek API...`);
+              
+              const modelsToTry = ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat"];
+              let lastDsError: any = null;
+              let dsResponse: any = null;
+
+              for (const modelName of modelsToTry) {
+                try {
+                  console.log(`[AI Compatibility] Trying DeepSeek model: ${modelName} (JSON Mode: ${jsonMode})`);
+                  const response = await axios.post('https://api.deepseek.com/chat/completions', {
+                    model: modelName,
+                    messages: params.messages,
+                    ...(jsonMode ? { response_format: params.response_format } : {})
+                  }, {
+                    headers: {
+                      'Authorization': `Bearer ${dsKey.trim()}`,
+                      'Content-Type': 'application/json'
+                    },
+                    timeout: 45000
+                  });
+
+                  if (response.data && response.data.choices && response.data.choices[0]) {
+                    dsResponse = response.data;
+                    break;
+                  }
+                } catch (error: any) {
+                  const errDetails = error.response?.data || error.message || error;
+                  console.log(`[AI Compatibility] DeepSeek model ${modelName} warning/failed:`, JSON.stringify(errDetails));
+                  lastDsError = error;
+                }
+              }
+
+              if (dsResponse) {
+                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved DeepSeek API response.`);
+                return dsResponse;
+              } else {
+                throw lastDsError || new Error("All DeepSeek models failed.");
+              }
+            }
+          } catch (error: any) {
+            console.log(`[AI Compatibility] ${this.clientName} DeepSeek API call warning:`, error.response?.data || error.message || error);
+            lastError = error;
+            // fall through
+          }
+
+          // 1.5. Try Gemini API using the official Google Gen AI SDK client
+          const activeGeminiClient = await getGeminiClient();
+          if (activeGeminiClient) {
+            try {
+              console.log(`[AI Compatibility] ${this.clientName} route calling Gemini API (gemini-3.5-flash)...`);
+              
+              const systemInstruction = sysMsg;
+              
+              // Map and collapse consecutive same-role messages to be Gemini SDK compliant
+              const geminiMessages: any[] = [];
+              for (const m of params.messages) {
+                if (m.role === 'system') continue;
+                const role = m.role === 'assistant' ? 'model' : 'user';
+                const content = m.content || '';
+                
+                if (geminiMessages.length > 0 && geminiMessages[geminiMessages.length - 1].role === role) {
+                  geminiMessages[geminiMessages.length - 1].parts[0].text += "\n\n" + content;
+                } else {
+                  geminiMessages.push({
+                    role,
+                    parts: [{ text: content }]
+                  });
+                }
+              }
+              
+              if (geminiMessages.length === 0) {
+                geminiMessages.push({
+                  role: 'user',
+                  parts: [{ text: 'Hello' }]
+                });
+              }
+
+              const response = await activeGeminiClient.models.generateContent({
+                model: "gemini-3.5-flash",
+                contents: geminiMessages,
+                config: {
+                  systemInstruction,
+                  ...(jsonMode ? { responseMimeType: "application/json" } : {})
+                }
+              });
+
+              if (response && response.text) {
+                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved Gemini API response.`);
+                return {
+                  choices: [
+                    {
+                      message: {
+                        content: response.text
+                      }
+                    }
+                  ]
+                };
+              }
+            } catch (error: any) {
+              console.log(`[AI Compatibility] ${this.clientName} Gemini API call warning:`, error.message || error);
+              lastError = error;
+              // fall through to Groq API keys step-by-step
+            }
+          }
+
+          // 2. Try Groq API keys step-by-step (As requested by user)
           for (const key of groqKeys) {
             try {
               console.log(`[AI Compatibility] ${this.clientName} route calling Groq API (${params.model || this.defaultModel}) with step-by-step key...`);
@@ -55,46 +176,44 @@ class AICompatibilityClient {
                 ...(jsonMode ? { response_format: params.response_format } : {})
               } as any);
             } catch (error: any) {
-              console.warn(`[AI Compatibility] ${this.clientName} Groq API warning for a key:`, error.message || error);
+              console.log(`[AI Compatibility] ${this.clientName} Groq API warning for a key:`, error.message || error);
               lastError = error;
               // Continue to next key in the step-by-step sequence
             }
           }
 
-          // 2. Try ZenMux API as a backup layer
+          // 3. Try APIFreeLLM API as a backup layer
           try {
-            const settingsRows = await db.execute("SELECT key, value FROM global_settings WHERE key = 'zenmux_api_key'");
-            const zenmuxKey = settingsRows.rows[0]?.value;
+            const settingsRows = await db.execute("SELECT key, value FROM global_settings WHERE key = 'apifreellm_api_key'");
+            const apifreellmKey = settingsRows.rows[0]?.value;
 
-            if (zenmuxKey && zenmuxKey !== 'YOUR_ZENMUX_API_KEY') {
-               console.log(`[AI Compatibility] Groq failed. Falling back to ZenMux API (${params.model || this.defaultModel}) with z-ai/glm-4.7-flash-free...`);
+            if (apifreellmKey && apifreellmKey !== 'YOUR_APIFREELLM_API_KEY') {
+               console.log(`[AI Compatibility] Groq failed. Falling back to APIFreeLLM API...`);
                
-               const response = await axios.post('https://zenmux.ai/api/v1/chat/completions', {
-                   model: "z-ai/glm-4.7-flash-free",
-                   messages: params.messages,
-                   ...(jsonMode ? { response_format: params.response_format } : {})
+               const response = await axios.post('https://apifreellm.com/api/v1/chat', {
+                   message: sysMsg + "\n\n" + userMsg
                }, {
                  headers: {
-                    'Authorization': `Bearer ${zenmuxKey}`,
+                    'Authorization': `Bearer ${apifreellmKey}`,
                     'Content-Type': 'application/json'
                  },
                  timeout: 45000
                });
 
-               if (response.data && response.data.choices && response.data.choices.length > 0) {
+               if (response.data && response.data.success && response.data.response) {
                  return {
                    choices: [
-                     { message: { content: response.data.choices[0].message.content } }
+                     { message: { content: response.data.response } }
                    ]
                  };
                }
             }
           } catch (err: any) {
-            console.warn(`[AI Compatibility] ${this.clientName} ZenMux backup layer failed:`, err.message || err);
+            console.log(`[AI Compatibility] ${this.clientName} APIFreeLLM backup layer failed:`, err.message || err);
           }
 
-          // 3. IF ALL GROQ and ZenMux KEYS FAIL, NEVER THROW AN ERROR! Dynamic local fallback mock generator:
-          console.warn(`[AI Compatibility] All AI providers failed. Instantiating high-fidelity UK Stander Local Fallback Core...`);
+          // 4. IF ALL GROQ, POE, and APIFREELLM KEYS FAIL, NEVER THROW AN ERROR! Dynamic local fallback mock generator:
+          console.log(`[AI Compatibility] All AI providers failed. Instantiating high-fidelity UK Stander Local Fallback Core...`);
             let fallbackContent = "No response available.";
             
             if (jsonMode) {
@@ -229,6 +348,37 @@ const db = createClient({
   authToken: dbToken,
 });
 
+// Dynamic getter helper to retrieve the Google Gen AI client with the most up-to-date API key
+const getGeminiClient = async (): Promise<GoogleGenAI | null> => {
+  try {
+    const rows = await db.execute("SELECT value FROM global_settings WHERE key = 'gemini_api_key'");
+    const key = rows.rows[0]?.value;
+    if (key && typeof key === 'string' && key.trim() !== '' && key !== 'YOUR_GEMINI_API_KEY' && !key.startsWith('gsk_')) {
+      return new GoogleGenAI({
+        apiKey: key.trim(),
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    }
+  } catch (err) {}
+
+  const envKey = process.env.GEMINI_API_KEY;
+  if (envKey && envKey.trim() !== '' && envKey !== 'YOUR_GEMINI_API_KEY' && !envKey.startsWith('gsk_')) {
+    return new GoogleGenAI({
+      apiKey: envKey.trim(),
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return null;
+};
+
 const JWT_SECRET = (process.env.JWT_SECRET || "").trim() || 'super-secret-key-for-dev';
 
 function escapeXml(unsafe: string): string {
@@ -353,6 +503,54 @@ async function initializeDatabase() {
           )
         `);
       } catch (e) {}
+
+      // Robustly ensure global_settings and keys are in place even if return early
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS global_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+          )
+        `);
+
+        // Check/Seed apifreellm_api_key
+        try {
+          const apifreellmApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'apifreellm_api_key'");
+          const apifreellmKeyValue = apifreellmApiKeyCheck.rows[0]?.value;
+          if (!apifreellmKeyValue || typeof apifreellmKeyValue !== 'string' || apifreellmKeyValue.trim() === '' || apifreellmKeyValue === 'YOUR_APIFREELLM_API_KEY' || !apifreellmKeyValue.startsWith('apf_')) {
+            await db.execute({
+              sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+              args: ['apifreellm_api_key', 'apf_ksjaxgatll4mi9vldmmip6z0']
+            });
+          }
+        } catch (e) {}
+
+        // Check/Seed deepseek_api_key
+        try {
+          const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'deepseek_api_key'");
+          const dsKeyValue = dsApiKeyCheck.rows[0]?.value;
+          if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_DEEPSEEK_API_KEY') {
+            await db.execute({
+              sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+              args: ['deepseek_api_key', 'YOUR_DEEPSEEK_API_KEY']
+            });
+          }
+        } catch (e) {}
+
+        // Check/Seed gemini_api_key
+        try {
+          const geminiApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'gemini_api_key'");
+          const geminiKeyValue = geminiApiKeyCheck.rows[0]?.value;
+          if (!geminiKeyValue || typeof geminiKeyValue !== 'string' || geminiKeyValue.trim() === '' || geminiKeyValue === 'YOUR_GEMINI_API_KEY') {
+            await db.execute({
+              sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+              args: ['gemini_api_key', 'YOUR_GEMINI_API_KEY']
+            });
+          }
+        } catch (e) {}
+      } catch (e) {
+        console.error("[Optimize Block Settings Fail]", e);
+      }
 
       return;
     }
@@ -926,12 +1124,33 @@ To start a return, please follow these simple steps:
       });
     }
 
-    // Ensure zenmux_api_key exists
-    const zenmuxApiKeyCheck = await db.execute("SELECT COUNT(*) as count FROM global_settings WHERE key = 'zenmux_api_key'");
-    if (Number(zenmuxApiKeyCheck.rows[0].count) === 0) {
+    // Ensure apifreellm_api_key exists
+    const apifreellmApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'apifreellm_api_key'");
+    const apifreellmKeyValue = apifreellmApiKeyCheck.rows[0]?.value;
+    if (!apifreellmKeyValue || typeof apifreellmKeyValue !== 'string' || apifreellmKeyValue.trim() === '' || apifreellmKeyValue === 'YOUR_APIFREELLM_API_KEY' || !apifreellmKeyValue.startsWith('apf_')) {
       await db.execute({
         sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
-        args: ['zenmux_api_key', 'YOUR_ZENMUX_API_KEY']
+        args: ['apifreellm_api_key', 'apf_ksjaxgatll4mi9vldmmip6z0']
+      });
+    }
+
+    // Ensure deepseek_api_key exists
+    const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'deepseek_api_key'");
+    const dsKeyValue = dsApiKeyCheck.rows[0]?.value;
+    if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_DEEPSEEK_API_KEY') {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['deepseek_api_key', 'YOUR_DEEPSEEK_API_KEY']
+      });
+    }
+
+    // Ensure gemini_api_key exists
+    const geminiApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'gemini_api_key'");
+    const geminiKeyValue = geminiApiKeyCheck.rows[0]?.value;
+    if (!geminiKeyValue || typeof geminiKeyValue !== 'string' || geminiKeyValue.trim() === '' || geminiKeyValue === 'YOUR_GEMINI_API_KEY') {
+      await db.execute({
+        sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+        args: ['gemini_api_key', 'YOUR_GEMINI_API_KEY']
       });
     }
 
@@ -4768,6 +4987,120 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
+  // Test APIFreeLLM API Key Endpoint
+  app.post('/api/admin/test-apifreellm', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey === 'YOUR_APIFREELLM_API_KEY') {
+        return res.status(400).json({ success: false, message: "Please provide a valid API key." });
+      }
+
+      console.log(`[Test] Testing APIFreeLLM with provided key...`);
+      const response = await axios.post('https://apifreellm.com/api/v1/chat', {
+        message: "Hello! This is a test connection. Please reply with exactly: 'APIFreeLLM is working successfully!'"
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.success) {
+        res.json({ success: true, response: response.data.response });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid response from APIFreeLLM." });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.response?.data?.message || error.message || "Unknown error occurred" });
+    }
+  });
+
+  // Test DeepSeek API Key Endpoint
+  app.post('/api/admin/test-deepseek', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey === 'YOUR_DEEPSEEK_API_KEY') {
+        return res.status(400).json({ success: false, message: "Please provide a valid API key." });
+      }
+
+      console.log(`[Test] Testing DeepSeek API with provided key...`);
+      const modelsToTry = ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat"];
+      let lastError: any = null;
+      let workingResponse: any = null;
+      let workingModel: string = "";
+
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`[Test] Testing DeepSeek model: ${modelName}`);
+          const response = await axios.post('https://api.deepseek.com/chat/completions', {
+            model: modelName,
+            messages: [{ role: "user", content: "Reply with exactly 'DeepSeek API is working successfully!'" }]
+          }, {
+            headers: {
+              'Authorization': `Bearer ${apiKey.trim()}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 15000
+          });
+
+          if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
+            workingResponse = response.data.choices[0].message.content;
+            workingModel = modelName;
+            break;
+          }
+        } catch (error: any) {
+          console.log(`[Test] DeepSeek model ${modelName} test error:`, error.response?.data || error.message);
+          lastError = error;
+        }
+      }
+
+      if (workingResponse) {
+        res.json({ success: true, response: `[Success using ${workingModel}] ${workingResponse}` });
+      } else {
+        const errMsg = lastError?.response?.data?.error?.message || lastError?.response?.data?.message || lastError?.message || "All models failed";
+        res.status(500).json({ success: false, message: errMsg });
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || "Unknown error occurred";
+      res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
+  // Test Gemini API Key Endpoint
+  app.post('/api/admin/test-gemini', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY' || apiKey.startsWith('gsk_')) {
+        return res.status(400).json({ success: false, message: "Please provide a valid Gemini API key." });
+      }
+
+      console.log(`[Test] Testing Gemini API with provided key...`);
+      const client = new GoogleGenAI({
+        apiKey: apiKey.trim(),
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: "Reply with exactly 'Gemini API is working successfully!'"
+      });
+
+      if (response && response.text) {
+        res.json({ success: true, response: response.text });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid response from Gemini API." });
+      }
+    } catch (error: any) {
+      const errMsg = error.message || "Unknown error occurred";
+      res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
   // POST global settings for header/footer
   app.post('/api/global-settings', async (req, res) => {
     try {
@@ -5450,16 +5783,18 @@ Provide a strictly JSON response matching this schema:
             parsed = JSON.parse(responseText);
             success = true;
           } catch (e) {
-            console.error("Failed to parse Groq JSON:", e);
+            console.log("Failed to parse Groq JSON:", e);
           }
         } catch (error: any) {
-           console.warn("Groq Vision API warning:", error.message || error);
+           console.log("Groq Vision API warning:", error.message || error);
            lastVisionError = error;
         }
       }
 
+      // Note: APIFreeLLM doesn't support this vision endpoint, so we default to local mock
+
       if (!success) {
-        console.warn("All Groq Vision providers failed. Falling back to local mock.");
+        console.log("All Vision AI providers failed. Falling back to local mock.");
       }
 
       // 3. Immediately dereference the image from memory to ensure it is deleted
@@ -6028,7 +6363,7 @@ Current Description: ${description}`;
           sql: "INSERT INTO live_chats (user_email, status, messages, is_active) VALUES (?, 'ai', ?, 1) RETURNING id",
           args: [email, "[]"]
         });
-        chatId = result.rows[0].id;
+        chatId = result.rows[0]?.id || result.rows[0]?.[0] || result.lastInsertRowid;
       } else {
         chatId = session.rows[0].id;
         msgs = JSON.parse(session.rows[0].messages as string || "[]");

@@ -182,7 +182,9 @@ export default function AdminDashboard() {
     zenrows_api_key: '',
     amazon_scraper_api_key: '',
     rapidapi_rainforest_api_key: '',
-    zenmux_api_key: '',
+    apifreellm_api_key: '',
+    deepseek_api_key: '',
+    gemini_api_key: '',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
     rainforest_min_reviews: '0',
@@ -426,7 +428,9 @@ export default function AdminDashboard() {
           zenrows_api_key: data.zenrows_api_key || '',
           amazon_scraper_api_key: data.amazon_scraper_api_key || '',
           rapidapi_rainforest_api_key: data.rapidapi_rainforest_api_key || '',
-          zenmux_api_key: data.zenmux_api_key || '',
+          apifreellm_api_key: data.apifreellm_api_key || '',
+          deepseek_api_key: data.deepseek_api_key || '',
+          gemini_api_key: data.gemini_api_key || '',
           rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
           rainforest_min_rating: data.rainforest_min_rating || '0.0',
           rainforest_min_reviews: data.rainforest_min_reviews || '0',
@@ -2383,17 +2387,151 @@ export default function AdminDashboard() {
 
                       <div className="border-t border-emerald-100/60 pt-3">
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3" /> ZenMux API For AI Fallback (seo_geo_optimizer replacement)
+                          <Sparkles className="w-3 h-3" /> APIFreeLLM API For AI Fallback
                         </label>
-                        <input 
-                          type="password" 
-                          value={globalSettings.zenmux_api_key} 
-                          onChange={e => setGlobalSettings({ ...globalSettings, zenmux_api_key: e.target.value })} 
-                          className="w-full bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                          placeholder="Paste your ZenMux API key here"
-                        />
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.apifreellm_api_key} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, apifreellm_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your APIFreeLLM API key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.apifreellm_api_key || globalSettings.apifreellm_api_key === 'YOUR_APIFREELLM_API_KEY') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-apifreellm', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.apifreellm_api_key })
+                                  });
+                                  const contentType = res.headers.get("content-type");
+                                  if (contentType && contentType.includes("application/json")) {
+                                      const data = await res.json();
+                                      if (data.success) {
+                                          alert('✅ Success! APIFreeLLM is working.\n\nAI Response: ' + data.response);
+                                      } else {
+                                          alert('❌ Error: ' + data.message);
+                                      }
+                                  } else {
+                                      const text = await res.text();
+                                      alert('❌ Error (Non-JSON Response): ' + text.slice(0, 300));
+                                  }
+                               } catch (err) {
+                                  alert('Request failed. Please check the console for details.');
+                               }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Test API
+                          </button>
+                        </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
-                          Fallback layer for AI that does SEO on our website. Uses z-ai/glm-4.7-flash-free models.
+                          Fallback layer for AI across the platform. Replaces ZenMux / GLM functionality.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" /> DeepSeek API Key (For Shopping Assistant)
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.deepseek_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, deepseek_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your DeepSeek API key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.deepseek_api_key || globalSettings.deepseek_api_key === 'YOUR_DEEPSEEK_API_KEY') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-deepseek', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.deepseek_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! DeepSeek API is working.\n\nAI Response: ' + data.response);
+                                  } else {
+                                      alert('❌ Error: ' + data.message);
+                                  }
+                               } catch (err) {
+                                  alert('Request failed. Please check the console for details.');
+                                }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Test API
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Primary AI engine (deepseek-v4-pro) powering customer shopping assistant and live user chats.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-purple-600" /> Google Gemini API Key (High-Fidelity Backup & SEO Agent)
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.gemini_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, gemini_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your Gemini API key here (AIzaSy...)"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.gemini_api_key || globalSettings.gemini_api_key === 'YOUR_GEMINI_API_KEY') {
+                                      alert('Please enter a valid Gemini API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-gemini', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.gemini_api_key })
+                                  });
+                                  const contentType = res.headers.get("content-type");
+                                  if (contentType && contentType.includes("application/json")) {
+                                      const data = await res.json();
+                                      if (data.success) {
+                                          alert('✅ Success! Gemini API is working.\n\nAI Response: ' + data.response);
+                                      } else {
+                                          alert('❌ Error: ' + data.message);
+                                      }
+                                  } else {
+                                      const text = await res.text();
+                                      alert('❌ Error (Non-JSON Response): ' + text.slice(0, 300));
+                                  }
+                               } catch (err) {
+                                  alert('Request failed. Please check the console for details.');
+                               }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Test API
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Google Gemini (gemini-3.5-flash) handles tags, SEO keyword injection, metadata optimization, and serves as the highest-fidelity fallback.
                         </p>
                       </div>
 
