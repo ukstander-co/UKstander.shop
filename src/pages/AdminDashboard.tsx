@@ -183,7 +183,7 @@ export default function AdminDashboard() {
     amazon_scraper_api_key: '',
     rapidapi_rainforest_api_key: '',
     apifreellm_api_key: '',
-    deepseek_api_key: '',
+    zenmux_api_key: '',
     gemini_api_key: '',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
@@ -410,7 +410,22 @@ export default function AdminDashboard() {
     }
   }, [editingProduct]);
 
+  const [keyPoolStats, setKeyPoolStats] = useState<any>({ total: 0, working: 0, keys: [] });
+  const [isSyncingKeys, setIsSyncingKeys] = useState(false);
+
+  const fetchKeyPoolStats = () => {
+    fetch('/api/admin/free-keys-stats')
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+          setKeyPoolStats(data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch key pool stats:", err));
+  };
+
   const fetchGlobalSettings = () => {
+    fetchKeyPoolStats();
     fetch('/api/global-settings')
       .then(res => res.json())
       .then(data => {
@@ -429,7 +444,7 @@ export default function AdminDashboard() {
           amazon_scraper_api_key: data.amazon_scraper_api_key || '',
           rapidapi_rainforest_api_key: data.rapidapi_rainforest_api_key || '',
           apifreellm_api_key: data.apifreellm_api_key || '',
-          deepseek_api_key: data.deepseek_api_key || '',
+          zenmux_api_key: data.zenmux_api_key || '',
           gemini_api_key: data.gemini_api_key || '',
           rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
           rainforest_min_rating: data.rainforest_min_rating || '0.0',
@@ -2439,32 +2454,32 @@ export default function AdminDashboard() {
 
                       <div className="border-t border-emerald-100/60 pt-3">
                         <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" /> DeepSeek API Key (For Shopping Assistant)
+                          <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" /> ZenMux (Z.AI) API Key (GLM-4.6V-Flash-Free)
                         </label>
                         <div className="flex gap-2">
                           <input 
                             type="password" 
-                            value={globalSettings.deepseek_api_key || ''} 
-                            onChange={e => setGlobalSettings({ ...globalSettings, deepseek_api_key: e.target.value })} 
+                            value={globalSettings.zenmux_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, zenmux_api_key: e.target.value })} 
                             className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
-                            placeholder="Paste your DeepSeek API key here"
+                            placeholder="Paste your ZenMux API key here"
                           />
                           <button
                             type="button"
                             onClick={async () => {
                                try {
-                                  if (!globalSettings.deepseek_api_key || globalSettings.deepseek_api_key === 'YOUR_DEEPSEEK_API_KEY') {
+                                  if (!globalSettings.zenmux_api_key || globalSettings.zenmux_api_key === 'YOUR_ZENMUX_API_KEY') {
                                       alert('Please enter a valid API key first.');
                                       return;
                                   }
-                                  const res = await fetch('/api/admin/test-deepseek', {
+                                  const res = await fetch('/api/admin/test-zenmux', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ apiKey: globalSettings.deepseek_api_key })
+                                      body: JSON.stringify({ apiKey: globalSettings.zenmux_api_key })
                                   });
                                   const data = await res.json();
                                   if (data.success) {
-                                      alert('✅ Success! DeepSeek API is working.\n\nAI Response: ' + data.response);
+                                      alert('✅ Success! ZenMux API is working.\n\nAI Response: ' + data.response);
                                   } else {
                                       alert('❌ Error: ' + data.message);
                                   }
@@ -2479,8 +2494,102 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
-                          Primary AI engine (deepseek-v4-pro) powering customer shopping assistant and live user chats.
+                          ZenMux (Z.AI) GLM-4.6V-Flash-Free powers customer support chatbot and SEO generation.
                         </p>
+                      </div>
+
+                      {/* GitHub Free Keys Pool Monitor Dashboard */}
+                      <div className="border-t border-emerald-100/60 pt-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <div>
+                            <label className="block text-[10px] font-black text-emerald-900 uppercase tracking-wider">
+                              🔄 GitHub Free Keys Auto-Rotation Pool
+                            </label>
+                            <p className="text-[9px] text-slate-500 font-medium">
+                              Auto-syncs free keys from <span className="underline font-mono text-[9px]">alistaitsacle/free-llm-api-keys</span>.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isSyncingKeys}
+                            onClick={async () => {
+                              setIsSyncingKeys(true);
+                              try {
+                                const res = await fetch('/api/admin/sync-free-keys', { method: 'POST' });
+                                const data = await res.json();
+                                if (data.success) {
+                                  alert('✅ Success! Keys successfully synced from GitHub.\n\nPool status: ' + data.stats.working + '/' + data.stats.total + ' working keys.');
+                                  fetchKeyPoolStats();
+                                } else {
+                                  alert('❌ Failed to sync: ' + data.message);
+                                }
+                              } catch (err) {
+                                alert('Failed to sync. Connection error.');
+                              } finally {
+                                setIsSyncingKeys(false);
+                              }
+                            }}
+                            className={`text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors ${
+                              isSyncingKeys 
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            }`}
+                          >
+                            {isSyncingKeys ? 'Syncing...' : 'Sync Now'}
+                          </button>
+                        </div>
+
+                        {/* Status Stats Block */}
+                        <div className="grid grid-cols-2 gap-2 mb-2 bg-emerald-50/50 rounded-lg p-2.5 border border-emerald-100/60">
+                          <div>
+                            <div className="text-[14px] font-black text-emerald-900 font-mono">
+                              {keyPoolStats.working} <span className="text-[9px] text-emerald-600 font-sans font-semibold">Working</span>
+                            </div>
+                            <div className="text-[8px] text-emerald-700 font-bold uppercase tracking-wider">Active Key Pool</div>
+                          </div>
+                          <div>
+                            <div className="text-[14px] font-black text-emerald-900 font-mono">
+                              {keyPoolStats.total} <span className="text-[9px] text-slate-500 font-sans font-semibold">Total</span>
+                            </div>
+                            <div className="text-[8px] text-emerald-700 font-bold uppercase tracking-wider">Keys Loaded</div>
+                          </div>
+                        </div>
+
+                        {/* Keys sample list */}
+                        {keyPoolStats.keys && keyPoolStats.keys.length > 0 ? (
+                          <div className="bg-white rounded-lg border border-slate-100 max-h-[140px] overflow-y-auto font-mono text-[9px] text-slate-700">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 text-[8px] text-slate-500 uppercase font-sans border-b border-slate-100">
+                                  <th className="p-1.5 font-bold">API Key Pattern</th>
+                                  <th className="p-1.5 font-bold">Status</th>
+                                  <th className="p-1.5 font-bold">Diagnostic Log / Error</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {keyPoolStats.keys.map((k: any, i: number) => (
+                                  <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                    <td className="p-1.5 text-slate-800 font-semibold">{k.api_key}</td>
+                                    <td className="p-1.5">
+                                      {k.is_working ? (
+                                        <span className="bg-emerald-50 text-emerald-700 text-[8px] px-1 py-0.5 rounded font-sans font-bold uppercase">Working</span>
+                                      ) : (
+                                        <span className="bg-rose-50 text-rose-700 text-[8px] px-1 py-0.5 rounded font-sans font-bold uppercase">Broken</span>
+                                      )}
+                                    </td>
+                                    <td className="p-1.5 text-slate-500 truncate max-w-[150px]" title={k.last_error}>
+                                      {k.last_error || 'No errors registered - Idle'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center p-3 text-[9px] text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                            No keys loaded in pool. Tap "Sync Now" to download from GitHub.
+                          </div>
+                        )}
                       </div>
 
                       <div className="border-t border-emerald-100/60 pt-3">

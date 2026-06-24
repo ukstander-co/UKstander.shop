@@ -50,59 +50,60 @@ class AICompatibilityClient {
 
           let lastError: any = null;
 
-          // 1. Try DeepSeek API key from global settings or process.env if it is set and valid
-          try {
-            const dsRows = await db.execute("SELECT key, value FROM global_settings WHERE key = 'deepseek_api_key'");
-            const dsKeyVal = dsRows.rows[0]?.value;
-            let dsKey = typeof dsKeyVal === 'string' ? dsKeyVal : '';
-            if (!dsKey || dsKey.trim() === '' || dsKey === 'YOUR_DEEPSEEK_API_KEY') {
-              dsKey = process.env.DEEPSEEK_API_KEY || '';
+          // 1. Try ZenMux (Z.AI) GLM-4.6V-Flash-Free API key from Github Key Pool or settings (Replaces DeepSeek)
+          let zenmuxSuccess = false;
+          let zenmuxResponse: any = null;
+
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const zmKey = await getWorkingZenMuxKey();
+            if (!zmKey) {
+              console.log("[AI Compatibility] No working ZenMux / GitHub keys found in pool.");
+              break;
             }
 
-            if (dsKey && dsKey.trim() !== '' && !dsKey.includes('YOUR_DEEPSEEK_API_KEY')) {
-              console.log(`[AI Compatibility] ${this.clientName} route calling DeepSeek API...`);
-              
-              const modelsToTry = ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat"];
-              let lastDsError: any = null;
-              let dsResponse: any = null;
+            try {
+              console.log(`[AI Compatibility] ${this.clientName} calling ZenMux API (z-ai/glm-4.6v-flash-free) with key ${zmKey.slice(0, 10)}... (Attempt ${attempt + 1})`);
+              const response = await axios.post('https://aiapiv2.pekpik.com/v1/chat/completions', {
+                model: "z-ai/glm-4.6v-flash-free",
+                messages: params.messages,
+                ...(jsonMode ? { response_format: params.response_format } : {})
+              }, {
+                headers: {
+                  'Authorization': `Bearer ${zmKey.trim()}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 30000
+              });
 
-              for (const modelName of modelsToTry) {
-                try {
-                  console.log(`[AI Compatibility] Trying DeepSeek model: ${modelName} (JSON Mode: ${jsonMode})`);
-                  const response = await axios.post('https://api.deepseek.com/chat/completions', {
-                    model: modelName,
-                    messages: params.messages,
-                    ...(jsonMode ? { response_format: params.response_format } : {})
-                  }, {
-                    headers: {
-                      'Authorization': `Bearer ${dsKey.trim()}`,
-                      'Content-Type': 'application/json'
-                    },
-                    timeout: 45000
-                  });
-
-                  if (response.data && response.data.choices && response.data.choices[0]) {
-                    dsResponse = response.data;
-                    break;
-                  }
-                } catch (error: any) {
-                  const errDetails = error.response?.data || error.message || error;
-                  console.log(`[AI Compatibility] DeepSeek model ${modelName} warning/failed:`, JSON.stringify(errDetails));
-                  lastDsError = error;
-                }
-              }
-
-              if (dsResponse) {
-                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved DeepSeek API response.`);
-                return dsResponse;
+              if (response.data && response.data.choices && response.data.choices[0]) {
+                console.log(`[AI Compatibility] ${this.clientName} successfully retrieved ZenMux API response.`);
+                zenmuxResponse = response.data;
+                zenmuxSuccess = true;
+                break; // Successful!
               } else {
-                throw lastDsError || new Error("All DeepSeek models failed.");
+                throw new Error("Invalid response format from ZenMux API");
               }
+            } catch (error: any) {
+              const errDetails = error.response?.data || error.message || error;
+              const errMsg = typeof errDetails === 'object' ? JSON.stringify(errDetails) : String(errDetails);
+              console.log(`[AI Compatibility] ZenMux key ${zmKey.slice(0, 10)}... failed:`, errMsg);
+              
+              // Mark this key as broken so we don't use it again
+              try {
+                await db.execute({
+                  sql: "UPDATE free_api_keys SET is_working = 0, last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
+                  args: [errMsg.slice(0, 500), zmKey]
+                });
+                console.log(`[AI Compatibility] Marked key ${zmKey.slice(0, 10)}... as broken/inactive in database.`);
+              } catch (dbErr) {
+                console.error("Failed to update key status in DB:", dbErr);
+              }
+              lastError = error;
             }
-          } catch (error: any) {
-            console.log(`[AI Compatibility] ${this.clientName} DeepSeek API call warning:`, error.response?.data || error.message || error);
-            lastError = error;
-            // fall through
+          }
+
+          if (zenmuxSuccess && zenmuxResponse) {
+            return zenmuxResponse;
           }
 
           // 1.5. Try Gemini API using the official Google Gen AI SDK client
@@ -379,6 +380,121 @@ const getGeminiClient = async (): Promise<GoogleGenAI | null> => {
   return null;
 };
 
+// Retrieve a working ZenMux API key from the database pool, falling back to global settings or process.env
+const getWorkingZenMuxKey = async (): Promise<string | null> => {
+  try {
+    const rows = await db.execute("SELECT api_key FROM free_api_keys WHERE is_working = 1 ORDER BY created_at DESC");
+    if (rows.rows.length > 0) {
+      // Pick a random working key or the newest one
+      const index = Math.floor(Math.random() * Math.min(5, rows.rows.length));
+      return rows.rows[index].api_key as string;
+    }
+  } catch (err) {}
+
+  try {
+    const rows = await db.execute("SELECT value FROM global_settings WHERE key = 'zenmux_api_key'");
+    const key = rows.rows[0]?.value;
+    if (key && typeof key === 'string' && key.trim() !== '' && key !== 'YOUR_ZENMUX_API_KEY') {
+      return key.trim();
+    }
+  } catch (err) {}
+
+  const envKey = process.env.ZENMUX_API_KEY || process.env.DEEPSEEK_API_KEY;
+  if (envKey && envKey.trim() !== '' && envKey !== 'YOUR_DEEPSEEK_API_KEY') {
+    return envKey.trim();
+  }
+
+  return null;
+};
+
+// Automatically synchronizes keys from the GitHub repository, deleting stale ones and inserting new ones
+const syncFreeApiKeys = async () => {
+  try {
+    console.log("[Sync] Fetching free LLM API keys from GitHub...");
+    const res = await axios.get('https://raw.githubusercontent.com/alistaitsacle/free-llm-api-keys/main/README.md', { timeout: 15000 });
+    const content = res.data;
+    if (!content || typeof content !== 'string') {
+      throw new Error("Invalid response content from GitHub");
+    }
+
+    const keyRegex = /`sk-[a-zA-Z0-9]{20,}`/g;
+    const matches = content.match(keyRegex) || [];
+    const foundKeys = Array.from(new Set(matches.map(k => k.replace(/`/g, '').trim())));
+
+    console.log(`[Sync] Found ${foundKeys.length} keys in GitHub repository.`);
+
+    if (foundKeys.length === 0) {
+      console.log("[Sync] No keys found in raw content. Skipping sync to prevent accidental deletion.");
+      return;
+    }
+
+    // Ensure table exists
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS free_api_keys (
+        api_key TEXT PRIMARY KEY,
+        source TEXT,
+        is_working INTEGER DEFAULT 1,
+        last_tested DATETIME,
+        last_error TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 1. Get existing keys from DB
+    const existingRows = await db.execute("SELECT api_key FROM free_api_keys WHERE source = 'github'");
+    const existingKeys = existingRows.rows.map(r => r.api_key as string);
+
+    // 2. Identify keys to delete (those that are currently in DB but NOT in the new fetched list)
+    const keysToDelete = existingKeys.filter(k => !foundKeys.includes(k));
+    for (const key of keysToDelete) {
+      await db.execute({
+        sql: "DELETE FROM free_api_keys WHERE api_key = ?",
+        args: [key]
+      });
+      console.log(`[Sync] Auto-deleted old/stale key: ${key.slice(0, 10)}...`);
+    }
+
+    // 3. Insert new keys (by default marking them as working)
+    let addedCount = 0;
+    for (const key of foundKeys) {
+      if (!existingKeys.includes(key)) {
+        await db.execute({
+          sql: "INSERT OR REPLACE INTO free_api_keys (api_key, source, is_working) VALUES (?, ?, ?)",
+          args: [key, 'github', 1]
+        });
+        addedCount++;
+      }
+    }
+
+    console.log(`[Sync] Completed key sync. Added ${addedCount} new keys. Auto-deleted ${keysToDelete.length} stale keys.`);
+  } catch (error: any) {
+    console.error("[Sync] Error syncing free LLM API keys from GitHub:", error.message || error);
+  }
+};
+
+// Retrieve stats about the free API key pool
+const getFreeKeysStatsInternal = async () => {
+  try {
+    const totalRows = await db.execute("SELECT COUNT(*) as count FROM free_api_keys");
+    const workingRows = await db.execute("SELECT COUNT(*) as count FROM free_api_keys WHERE is_working = 1");
+    const sampleRows = await db.execute("SELECT api_key, is_working, last_tested, last_error FROM free_api_keys ORDER BY created_at DESC LIMIT 15");
+    
+    return {
+      total: Number(totalRows.rows[0]?.count || 0),
+      working: Number(workingRows.rows[0]?.count || 0),
+      keys: sampleRows.rows.map(r => ({
+        api_key: (r.api_key as string).slice(0, 15) + '...',
+        is_working: Number(r.is_working) === 1,
+        last_tested: r.last_tested,
+        last_error: r.last_error
+      }))
+    };
+  } catch (err: any) {
+    return { total: 0, working: 0, keys: [], error: err.message };
+  }
+};
+
+
 const JWT_SECRET = (process.env.JWT_SECRET || "").trim() || 'super-secret-key-for-dev';
 
 function escapeXml(unsafe: string): string {
@@ -525,14 +641,14 @@ async function initializeDatabase() {
           }
         } catch (e) {}
 
-        // Check/Seed deepseek_api_key
+        // Check/Seed zenmux_api_key
         try {
-          const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'deepseek_api_key'");
+          const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'zenmux_api_key'");
           const dsKeyValue = dsApiKeyCheck.rows[0]?.value;
-          if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_DEEPSEEK_API_KEY') {
+          if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_ZENMUX_API_KEY') {
             await db.execute({
               sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
-              args: ['deepseek_api_key', 'YOUR_DEEPSEEK_API_KEY']
+              args: ['zenmux_api_key', 'YOUR_ZENMUX_API_KEY']
             });
           }
         } catch (e) {}
@@ -1134,13 +1250,13 @@ To start a return, please follow these simple steps:
       });
     }
 
-    // Ensure deepseek_api_key exists
-    const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'deepseek_api_key'");
+    // Ensure zenmux_api_key exists
+    const dsApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'zenmux_api_key'");
     const dsKeyValue = dsApiKeyCheck.rows[0]?.value;
-    if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_DEEPSEEK_API_KEY') {
+    if (!dsKeyValue || typeof dsKeyValue !== 'string' || dsKeyValue.trim() === '' || dsKeyValue === 'YOUR_ZENMUX_API_KEY') {
       await db.execute({
         sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
-        args: ['deepseek_api_key', 'YOUR_DEEPSEEK_API_KEY']
+        args: ['zenmux_api_key', 'YOUR_ZENMUX_API_KEY']
       });
     }
 
@@ -1211,6 +1327,8 @@ To start a return, please follow these simple steps:
     }
 
     console.log("Database initialized successfully!");
+    // Initial sync of free API key pool in background
+    syncFreeApiKeys().catch(err => console.error("Initial free key pool sync failed on boot:", err));
   } catch (error) {
     console.error("Failed to initialize database:", error);
   }
@@ -2285,6 +2403,12 @@ function startServer() {
     cron.schedule('30 2 * * *', () => {
       console.log("[Autopilot Scheduler] Running scheduled 24h daily UK predictive trends spotting routine...");
       generatePredictiveTrends();
+    });
+
+    // Automatically synchronize free API keys from GitHub every 30 minutes
+    cron.schedule('*/30 * * * *', () => {
+      console.log("[Autopilot Scheduler] Running scheduled 30m free LLM API keys pool sync routine...");
+      syncFreeApiKeys();
     });
 
     // Daily cleanup of blogs older than 15 days
@@ -5016,54 +5140,56 @@ Return valid JSON ONLY (no comments) in this format:
     }
   });
 
-  // Test DeepSeek API Key Endpoint
-  app.post('/api/admin/test-deepseek', async (req, res) => {
+  // Test ZenMux API Key Endpoint
+  app.post('/api/admin/test-zenmux', async (req, res) => {
     try {
       const { apiKey } = req.body;
-      if (!apiKey || apiKey === 'YOUR_DEEPSEEK_API_KEY') {
-        return res.status(400).json({ success: false, message: "Please provide a valid API key." });
+      if (!apiKey || apiKey === 'YOUR_ZENMUX_API_KEY') {
+        return res.status(400).json({ success: false, message: "Please provide a valid ZenMux API key." });
       }
 
-      console.log(`[Test] Testing DeepSeek API with provided key...`);
-      const modelsToTry = ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat"];
-      let lastError: any = null;
-      let workingResponse: any = null;
-      let workingModel: string = "";
+      console.log(`[Test] Testing ZenMux API with provided key...`);
+      const response = await axios.post('https://aiapiv2.pekpik.com/v1/chat/completions', {
+        model: "z-ai/glm-4.6v-flash-free",
+        messages: [{ role: "user", content: "Reply with exactly 'ZenMux Z.AI GLM-4.6V-Flash-Free is working successfully!'" }]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
 
-      for (const modelName of modelsToTry) {
-        try {
-          console.log(`[Test] Testing DeepSeek model: ${modelName}`);
-          const response = await axios.post('https://api.deepseek.com/chat/completions', {
-            model: modelName,
-            messages: [{ role: "user", content: "Reply with exactly 'DeepSeek API is working successfully!'" }]
-          }, {
-            headers: {
-              'Authorization': `Bearer ${apiKey.trim()}`,
-              'Content-Type': 'application/json'
-            },
-            timeout: 15000
-          });
-
-          if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
-            workingResponse = response.data.choices[0].message.content;
-            workingModel = modelName;
-            break;
-          }
-        } catch (error: any) {
-          console.log(`[Test] DeepSeek model ${modelName} test error:`, error.response?.data || error.message);
-          lastError = error;
-        }
-      }
-
-      if (workingResponse) {
-        res.json({ success: true, response: `[Success using ${workingModel}] ${workingResponse}` });
+      if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
+        res.json({ success: true, response: response.data.choices[0].message.content });
       } else {
-        const errMsg = lastError?.response?.data?.error?.message || lastError?.response?.data?.message || lastError?.message || "All models failed";
-        res.status(500).json({ success: false, message: errMsg });
+        res.status(400).json({ success: false, message: "Invalid response format from ZenMux API." });
       }
     } catch (error: any) {
       const errMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || "Unknown error occurred";
       res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
+  // Manual Trigger for Dynamic Free Keys Synchronization from GitHub
+  app.post('/api/admin/sync-free-keys', async (req, res) => {
+    try {
+      console.log("[Admin API] Triggering manual free API keys synchronization from GitHub...");
+      await syncFreeApiKeys();
+      const stats = await getFreeKeysStatsInternal();
+      res.json({ success: true, message: "Keys successfully synced with GitHub!", stats });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || "Sync failed" });
+    }
+  });
+
+  // Fetch Free Key Pool Statistics and Log Entries
+  app.get('/api/admin/free-keys-stats', async (req, res) => {
+    try {
+      const stats = await getFreeKeysStatsInternal();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 
