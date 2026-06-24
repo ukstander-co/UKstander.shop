@@ -32,6 +32,7 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useTranslation } from "../hooks/useTranslation";
 import { apiClient } from "../utils/apiClient";
 import { getProductSeoUrl } from "../utils/seo";
+import { getUkAffiliateLink } from "../utils/links";
 
 const MOCK_PRODUCTS = [
   {
@@ -1674,7 +1675,7 @@ export default function UserDashboard() {
                           {(matchedCards.length > 0 ? matchedCards : (msg.products || [])).map((prod: any, idx: number) => (
                             <div key={prod.id || idx} className="mb-2">
                               <a 
-                                href={prod.affiliate_link || `/product/${prod.id}`} 
+                                href={prod.affiliate_link ? getUkAffiliateLink(prod.affiliate_link) : `/product/${prod.id}`} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 className="text-red-600 hover:text-red-700 hover:underline font-bold"
