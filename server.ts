@@ -4179,7 +4179,8 @@ CORE INSTRUCTIONS:
 2. CRITICAL ON PRICING: Whenever mentioning, listing, or answering queries about any product from the catalog, you MUST explicitly state its exact price prefixed with a pound sign (e.g. £12.50). Do not hallucinate or omit prices—always state the exact catalog 'price' value.
 3. DISCLOSING SYSTEM LOGIC: If and only if the user specifically asks "how does this AI work?", "what logic do you use?", or "how are you showing me items?", explain clearly and objectively that we are running an A/B test system (utilizing rotated Groq models for 60% of traffic, tracking category interest lists, click rate speeds, and estimated user budget logs). If they do NOT ask, do NOT mention this backend logic.
 4. ESCALATION TRIGGER: If they request to speak with a human, agent, administrator, real person, or if they are extremely unhappy:
-   Explain that you are transferring their session to the control console immediately. You MUST append "[CONNECT_ADMIN_TRIGGER]" explicitly at the end of your string response.`;
+   Explain that you are transferring their session to the control console immediately. You MUST append "[CONNECT_ADMIN_TRIGGER]" explicitly at the end of your string response.
+5. RECOMMEND WITH PRODUCT LINKS: Whenever listing or recommending any product from the catalog, you MUST ALWAYS include its direct link in the format '[Product Title](/product/ID)' where ID is the numerical database ID (e.g. use '/product/12' instead of 'db-12' or anything else). The frontend will automatically detect these links and display beautiful interactive product cards for each recommended product below your message. Ensure the product links are 100% correct based on the catalog.`;
 
       const response = await assistantGroqClient.chat.completions.create({
         messages: [
@@ -4193,6 +4194,30 @@ CORE INSTRUCTIONS:
       const connectsAdmin = replyContent.includes("[CONNECT_ADMIN_TRIGGER]");
 
       const formattedReply = replyContent.replace("[CONNECT_ADMIN_TRIGGER]", "");
+
+      // Extract recommended product IDs to show beautiful cards
+      const ids: number[] = [];
+      const matches = [...formattedReply.matchAll(/(?:\/product\/|db-|id:\s*|product\s*id\s*|product\/)(\d+)/gi)];
+      for (const match of matches) {
+        const id = parseInt(match[1], 10);
+        if (!isNaN(id) && !ids.includes(id)) {
+          ids.push(id);
+        }
+      }
+
+      let recommendedProducts: any[] = [];
+      if (ids.length > 0) {
+        try {
+          const placeholders = ids.map(() => '?').join(',');
+          const prodRes = await db.execute({
+            sql: `SELECT id, ai_title, price, category, rating, views_count, affiliate_link, ai_image_url FROM products WHERE id IN (${placeholders})`,
+            args: ids
+          });
+          recommendedProducts = prodRes.rows;
+        } catch (err) {
+          console.error("Failed to query recommended products for chat cards:", err);
+        }
+      }
 
       let status = "ai";
       if (connectsAdmin) {
@@ -4224,7 +4249,7 @@ CORE INSTRUCTIONS:
         });
       }
 
-      res.json({ reply: formattedReply, adminConnected: connectsAdmin, currentStatus: status });
+      res.json({ reply: formattedReply, adminConnected: connectsAdmin, currentStatus: status, products: recommendedProducts });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Shopping agent communication failure" });

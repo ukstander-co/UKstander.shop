@@ -1595,16 +1595,85 @@ export default function UserDashboard() {
             >
               {widgetMessages.map((msg, i) => {
                 const isUser = msg.role === "user";
+                let matchedCards: any[] = [];
+                if (!isUser) {
+                  if (msg.products && Array.isArray(msg.products)) {
+                    matchedCards = msg.products;
+                  } else {
+                    const ids: number[] = [];
+                    const matches = [...msg.content.matchAll(/(?:\/product\/|db-|id:\s*|product\s*id\s*|product\/)(\d+)/gi)];
+                    for (const match of matches) {
+                      const id = parseInt(match[1], 10);
+                      if (!isNaN(id) && !ids.includes(id)) {
+                        ids.push(id);
+                      }
+                    }
+                    matchedCards = ids
+                      .map(id => products.find(p => p.id === id || p.id?.toString() === id.toString()))
+                      .filter(Boolean);
+                  }
+                }
+
                 return (
                   <div
                     key={i}
-                    className={`flex flex-col max-w-[80%] ${isUser ? "align-end self-end text-right" : "align-start self-start text-left"}`}
+                    className={`flex flex-col ${isUser ? "max-w-[80%] align-end self-end text-right" : "max-w-[95%] align-start self-start text-left"}`}
                   >
                     <div
                       className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${isUser ? "bg-red-600 text-white rounded-tr-none" : "bg-slate-100 text-slate-800 rounded-tl-none"}`}
                     >
                       {msg.content}
                     </div>
+
+                    {/* Beautiful graphical Product Cards list */}
+                    {!isUser && matchedCards.length > 0 && (
+                      <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent max-w-full">
+                        {matchedCards.map((prod) => (
+                          <div
+                            key={prod.id}
+                            onClick={() => handleProductView(prod)}
+                            className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-red-100 p-2 cursor-pointer transition-all flex flex-col gap-1.5"
+                          >
+                            <div className="bg-[#FAF9F6] h-24 rounded-xl flex items-center justify-center p-2 relative overflow-hidden border border-slate-50">
+                              <img
+                                src={prod.image || prod.ai_image_url || '/placeholder.png'}
+                                alt={prod.name || prod.ai_title}
+                                className="object-contain w-full h-full mix-blend-multiply"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                              <span className="text-[9px] font-bold text-red-600 uppercase tracking-wider truncate">
+                                {prod.category}
+                              </span>
+                              <h4 className="text-[10px] font-bold text-slate-800 line-clamp-2 leading-snug">
+                                {prod.name || prod.ai_title}
+                              </h4>
+                              <div className="mt-auto flex items-center justify-between pt-1">
+                                <span className="text-xs font-black text-slate-900">
+                                  £{Number(prod.price).toFixed(2)}
+                                </span>
+                                {prod.rating && (
+                                  <span className="text-[9px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-black flex items-center gap-0.5 border border-amber-100">
+                                    ★ {prod.rating}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProductView(prod);
+                              }}
+                              className="w-full bg-red-50 text-red-600 hover:bg-red-100 text-[9px] font-black uppercase tracking-wider py-1.5 rounded-lg transition-all"
+                            >
+                              View Deal
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
