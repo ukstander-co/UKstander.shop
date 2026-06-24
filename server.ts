@@ -4385,6 +4385,7 @@ CORE INSTRUCTIONS:
 </rss>`;
 
       res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.send(rssXml);
     } catch (e: any) {
       console.error("[RSS Blogs Feed] Failed generation:", e);
@@ -4431,6 +4432,7 @@ CORE INSTRUCTIONS:
 </rss>`;
 
       res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.send(rssXml);
     } catch (e: any) {
       console.error("[RSS Products Feed] Failed generation:", e);
