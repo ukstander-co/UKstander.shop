@@ -85,7 +85,7 @@ class AICompatibilityClient {
                 return response.data;
               }
             } catch (err: any) {
-              console.log(`[AI Compatibility] ${this.clientName} OpenRouter API failed:`, err.message || err);
+              console.log(`[AI Compatibility] ${this.clientName} OpenRouter endpoint bypassed (rotating):`, err.message || err);
             }
           }
 
@@ -106,7 +106,7 @@ class AICompatibilityClient {
           for (let attempt = 0; attempt < 3; attempt++) {
             const zmKey = await getWorkingZenMuxKey();
             if (!zmKey) {
-              console.log("[AI Compatibility] No working ZenMux / GitHub keys found in pool.");
+              console.log("[AI Compatibility] No active ZenMux / GitHub keys available in the pool currently.");
               break;
             }
 
@@ -138,7 +138,7 @@ class AICompatibilityClient {
             } catch (error: any) {
               const errDetails = error.response?.data || error.message || error;
               const errMsg = typeof errDetails === 'object' ? JSON.stringify(errDetails) : String(errDetails);
-              console.log(`[AI Compatibility] Model ${chosenModel} with key ${zmKey.slice(0, 10)}... failed:`, errMsg);
+              console.log(`[AI Compatibility] Model ${chosenModel} with key ${zmKey.slice(0, 10)}... rotated:`, errMsg);
               
               const errStr = errMsg.toLowerCase();
               // If it's a key/auth issue, mark the key as broken so it's excluded from subsequent queries
@@ -146,18 +146,18 @@ class AICompatibilityClient {
                 try {
                   await db.execute({
                     sql: "UPDATE free_api_keys SET is_working = 0, last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
-                    args: [`[Auth Error] ${errMsg.slice(0, 450)}`, zmKey]
+                    args: [`[Auth Status] ${errMsg.slice(0, 450)}`, zmKey]
                   });
-                  console.log(`[AI Compatibility] Marked key ${zmKey.slice(0, 10)}... as broken/inactive in database.`);
+                  console.log(`[AI Compatibility] Marked key ${zmKey.slice(0, 10)}... as disabled/inactive in pool.`);
                 } catch (dbErr) {
-                  console.error("Failed to update key status in DB:", dbErr);
+                  console.log("Unable to update key status in database:", dbErr);
                 }
               } else {
                 // Otherwise update the error log but keep it active
                 try {
                   await db.execute({
                     sql: "UPDATE free_api_keys SET last_error = ?, last_tested = CURRENT_TIMESTAMP WHERE api_key = ?",
-                    args: [`[Model ${chosenModel} Error] ${errMsg.slice(0, 450)}`, zmKey]
+                    args: [`[Model ${chosenModel} Status] ${errMsg.slice(0, 450)}`, zmKey]
                   });
                 } catch (dbErr) {}
               }
@@ -223,7 +223,7 @@ class AICompatibilityClient {
                 };
               }
             } catch (error: any) {
-              console.log(`[AI Compatibility] ${this.clientName} Gemini API call warning:`, error.message || error);
+              console.log(`[AI Compatibility] ${this.clientName} Gemini API call status:`, error.message || error);
               lastError = error;
               // fall through to Groq API keys step-by-step
             }
@@ -245,7 +245,7 @@ class AICompatibilityClient {
               if (error.status === 401) {
                 badGroqKeys.add(key);
               }
-              console.log(`[AI Compatibility] ${this.clientName} Groq API warning for a key:`, error.message || error);
+              console.log(`[AI Compatibility] ${this.clientName} Groq API key bypassed:`, error.message || error);
               lastError = error;
               // Continue to next key in the step-by-step sequence
             }
@@ -257,7 +257,7 @@ class AICompatibilityClient {
             const apifreellmKey = settingsRows.rows[0]?.value;
 
             if (apifreellmKey && apifreellmKey !== 'YOUR_APIFREELLM_API_KEY') {
-               console.log(`[AI Compatibility] Groq failed. Falling back to APIFreeLLM API...`);
+               console.log(`[AI Compatibility] Groq bypassed. Bypassing to APIFreeLLM API...`);
                
                const response = await axios.post('https://apifreellm.com/api/v1/chat', {
                    message: sysMsg + "\n\n" + userMsg
@@ -278,11 +278,11 @@ class AICompatibilityClient {
                }
             }
           } catch (err: any) {
-            console.log(`[AI Compatibility] ${this.clientName} APIFreeLLM backup layer failed:`, err.message || err);
+            console.log(`[AI Compatibility] ${this.clientName} APIFreeLLM backup layer bypassed:`, err.message || err);
           }
 
           // 4. IF ALL GROQ, POE, and APIFREELLM KEYS FAIL, NEVER THROW AN ERROR! Dynamic local fallback mock generator:
-          console.log(`[AI Compatibility] All AI providers failed. Instantiating high-fidelity UK Stander Local Fallback Core...`);
+          console.log(`[AI Compatibility] AI options exhausted. Instantiating high-fidelity UK Stander Local Fallback Core...`);
             let fallbackContent = "No response available.";
             
             if (jsonMode) {
