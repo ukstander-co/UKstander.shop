@@ -173,7 +173,7 @@ class AICompatibilityClient {
           const activeGeminiClient = await getGeminiClient();
           if (activeGeminiClient) {
             try {
-              console.log(`[AI Compatibility] ${this.clientName} route calling Gemini API (gemini-3.5-flash)...`);
+              console.log(`[AI Compatibility] ${this.clientName} route calling Gemini API (gemini-2.5-flash)...`);
               
               const systemInstruction = sysMsg;
               
@@ -201,8 +201,8 @@ class AICompatibilityClient {
                 });
               }
 
-              const response = await activeGeminiClient.models.generateContent({
-                model: "gemini-2.0-flash",
+              const response = await generateGeminiContentWithFallback(activeGeminiClient, {
+                fallbackModel: "gemini-2.5-flash",
                 contents: geminiMessages,
                 config: {
                   systemInstruction,
@@ -446,6 +446,55 @@ const getGeminiClient = async (): Promise<GoogleGenAI | null> => {
     });
   }
   return null;
+};
+
+// Dynamic helper function to call Gemini content generation with multi-model fallback list to avoid quota limits or deprecations
+const generateGeminiContentWithFallback = async (
+  client: GoogleGenAI,
+  params: {
+    contents: any;
+    config?: any;
+    fallbackModel?: string;
+  }
+): Promise<any> => {
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
+  ];
+
+  if (params.fallbackModel && models.includes(params.fallbackModel)) {
+    const idx = models.indexOf(params.fallbackModel);
+    if (idx > -1) {
+      models.splice(idx, 1);
+    }
+    models.unshift(params.fallbackModel);
+  } else if (params.fallbackModel) {
+    models.unshift(params.fallbackModel);
+  }
+
+  let lastError: any = null;
+  for (const model of models) {
+    try {
+      console.log(`[Gemini Fallback System] Attempting generation with model: ${model}...`);
+      const response = await client.models.generateContent({
+        model,
+        contents: params.contents,
+        config: params.config
+      });
+      if (response && (response.text || response.candidates)) {
+        console.log(`[Gemini Fallback System] Successfully generated content using model: ${model}`);
+        return response;
+      }
+    } catch (err: any) {
+      console.warn(`[Gemini Fallback System] Model ${model} failed:`, err.message || err);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("All Gemini models failed in fallback sequence.");
 };
 
 // Dynamic getter helper to retrieve the OpenRouter API Key
@@ -5518,8 +5567,8 @@ Return valid JSON ONLY (no comments) in this format:
         }
       });
 
-      const response = await client.models.generateContent({
-        model: "gemini-1.5-flash",
+      const response = await generateGeminiContentWithFallback(client, {
+        fallbackModel: "gemini-2.5-flash",
         contents: "Reply with exactly 'Gemini API is working successfully!'"
       });
 
@@ -6523,8 +6572,8 @@ Provide a strictly JSON response matching this schema:
         if (geminiClient) {
           try {
             console.log("[AI Vision Fallback] Attempting Gemini fallback for image SEO analysis...");
-            const response = await geminiClient.models.generateContent({
-              model: "gemini-2.0-flash",
+            const response = await generateGeminiContentWithFallback(geminiClient, {
+              fallbackModel: "gemini-2.5-flash",
               contents: [
                 prompt,
                 {
@@ -6923,8 +6972,8 @@ CRITICAL MANDATORY INSTRUCTIONS:
         console.warn("[Gap Analyzer] Groq failed, attempting Gemini fallback...", groqErr);
         const geminiClient = await getGeminiClient();
         if (geminiClient) {
-          const geminiResponse = await geminiClient.models.generateContent({
-            model: "gemini-2.5-flash",
+          const geminiResponse = await generateGeminiContentWithFallback(geminiClient, {
+            fallbackModel: "gemini-2.5-flash",
             contents: prompt,
             config: {
                responseMimeType: "application/json"
@@ -6966,8 +7015,8 @@ CRITICAL MANDATORY INSTRUCTIONS:
         console.warn("[FAQ Schema] Groq failed, attempting Gemini fallback...", groqErr);
         const geminiClient = await getGeminiClient();
         if (geminiClient) {
-          const geminiResponse = await geminiClient.models.generateContent({
-            model: "gemini-2.5-flash",
+          const geminiResponse = await generateGeminiContentWithFallback(geminiClient, {
+            fallbackModel: "gemini-2.5-flash",
             contents: prompt,
             config: {
                responseMimeType: "application/json"
@@ -7023,8 +7072,8 @@ Current Description: ${description}`;
         console.warn("[LSI Inserter] Groq failed, attempting Gemini fallback...", groqErr);
         const geminiClient = await getGeminiClient();
         if (geminiClient) {
-          const geminiResponse = await geminiClient.models.generateContent({
-            model: "gemini-2.5-flash",
+          const geminiResponse = await generateGeminiContentWithFallback(geminiClient, {
+            fallbackModel: "gemini-2.5-flash",
             contents: lsiPrompt,
             config: {
                responseMimeType: "application/json"
