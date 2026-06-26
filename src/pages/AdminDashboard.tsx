@@ -186,6 +186,7 @@ export default function AdminDashboard() {
     zenmux_api_key: '',
     gemini_api_key: '',
     groq_api_key: '',
+    openrouter_api_key: '',
     amazon_marketplace: 'amazon.co.uk',
     rainforest_sort_by: 'average_customer_reviews',
     rainforest_min_rating: '0.0',
@@ -462,6 +463,7 @@ export default function AdminDashboard() {
           zenmux_api_key: data.zenmux_api_key || '',
           gemini_api_key: data.gemini_api_key || '',
           groq_api_key: data.groq_api_key || '',
+          openrouter_api_key: data.openrouter_api_key || '',
           rainforest_sort_by: data.rainforest_sort_by || 'average_customer_reviews',
           rainforest_min_rating: data.rainforest_min_rating || '0.0',
           rainforest_min_reviews: data.rainforest_min_reviews || '0',
@@ -1983,18 +1985,19 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
-              
-              {/* Product Catalog Management - Unified Layout */}
-              <div className="space-y-8 mt-8">
+                            {/* Product Catalog Management - Unified Layout */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
                 
-                {/* 1. Optimizer Section - Full Width */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  {renderGroqOptimizerPanel()}
+                {/* 1. Optimizer Section - Sidebar on XL */}
+                <div className="xl:col-span-1">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
+                    {renderGroqOptimizerPanel()}
+                  </div>
                 </div>
 
-                {/* 2. Catalog List Section - Full Width */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
+                {/* 2. Catalog List Section - Main Content */}
+                <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
                       <h2 className="text-sm font-black text-slate-900 uppercase flex items-center gap-2">
                         <LayoutDashboard className="w-4 h-4 text-emerald-600" /> Live Curation Catalog List
@@ -2004,7 +2007,6 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     
-                    {/* Sync Action Moved here for better visibility */}
                     <button 
                       onClick={async () => {
                         if (!confirm("Start AI blog generation for missing articles? This process may take a few minutes.")) return;
@@ -2027,7 +2029,7 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   
-                  <div className="overflow-y-auto max-h-[600px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="overflow-y-auto max-h-[800px] grid grid-cols-1 md:grid-cols-2 gap-4">
                     {productsList.map((prod) => (
                       <div key={prod.db_id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-4">
                          {prod.image_url && <img src={prod.image_url} alt={prod.ai_title} className="w-16 h-16 rounded-lg object-cover" />}
@@ -2049,87 +2051,9 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                
-                {/* AI Publisher Column */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col h-fit">
-                  <h3 className="font-extrabold text-slate-900 tracking-tight flex items-center gap-2 text-xs uppercase mb-3 text-red-600">
-                    <Sparkles className="w-4 h-4 text-red-600 animate-pulse" /> Publish New item (Groq AI Optimizer)
-                  </h3>
-                  <p className="text-slate-500 text-[11px] mb-4">Paste specifications list data from a seller page, and the AI parses the characteristics, generates a trust title, tags and catalogs details dynamically.</p>
-                  
-                  {success && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">{success}</div>}
-                  
-                  <form onSubmit={handleGenerate} className="space-y-4">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">Merchant Redirect Link</label>
-                      <input required type="url" value={formData.affiliateLink} onChange={e => setFormData({...formData, affiliateLink: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-red-500" placeholder="https://amazon.co.uk/dp/..." />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">Banner Image URL</label>
-                      <input required type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-red-500" placeholder="https://images.unsplash.com/..." />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">Additional Slider Images (Comma Separated)</label>
-                      <input type="text" value={formData.additionalImages} onChange={e => setFormData({...formData, additionalImages: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none" placeholder="https://image1.jpg, https://image2.jpg" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">Standard Item Price (£)</label>
-                      <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-red-500" placeholder="49.99" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">Specs context / raw characteristics list</label>
-                      <textarea required rows={3} value={formData.rawContext} onChange={e => setFormData({...formData, rawContext: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-red-500" placeholder="Paste Amazon product summary sheet..."></textarea>
-                    </div>
-                    <button disabled={loading} type="submit" className="w-full bg-[#0B192C] hover:bg-indigo-700 text-white font-bold text-xs uppercase py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50">
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Optimize & Publish
-                    </button>
-                  </form>
-                </div>
-
-                {/* Database Products List */}
-                <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col h-[520px]">
-                  <h3 className="font-extrabold text-slate-900 tracking-tight text-xs uppercase mb-3">Live Curation Catalog list</h3>
-                  <p className="text-slate-500 text-[11px] mb-4">Click edit on any product listing below to edit standard parameters or delete them from the platform database.</p>
-                  
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-2 border-t border-slate-100 pt-3">
-                    {productsList.length === 0 ? (
-                      <div className="text-center py-16 text-slate-400 text-xs font-semibold">No catalog entries found.</div>
-                    ) : (
-                      productsList.map((prod) => (
-                        <div key={prod.id} className="p-3 bg-slate-50 border rounded-xl flex gap-3 hover:shadow-xs transition-shadow">
-                          <img 
-                            src={prod.image_url || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=150"} 
-                            alt={prod.ai_title}
-                            referrerPolicy="no-referrer"
-                            className="w-16 h-16 object-cover bg-white border rounded-lg shrink-0"
-                          />
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-center justify-between gap-1 mb-0.5">
-                                <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-md leading-none">{prod.category}</span>
-                                <span className="text-xs font-black text-slate-900">£{prod.price}</span>
-                              </div>
-                              <h4 className="text-xs font-bold text-slate-800 truncate max-w-[280px]">{prod.ai_title}</h4>
-                            </div>
-                            <div className="flex gap-2 mt-1">
-                              <button onClick={() => handleEditProductClick(prod)} className="text-blue-600 hover:text-blue-800 text-[10px] font-bold flex items-center gap-1 hover:underline cursor-pointer">
-                                <Edit2 className="w-3 h-3" /> Edit Row
-                              </button>
-                              <button onClick={() => handleDeleteProduct(prod.db_id)} className="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center gap-1 hover:underline cursor-pointer">
-                                <Trash2 className="w-3 h-3" /> Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
+
 
           {/* TAB 3: Users Manager (Registered database users list, edit user profile fields) */}
           {activeTab === 'users' && (
@@ -2524,6 +2448,51 @@ export default function AdminDashboard() {
                         />
                         <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
                           Enter your RapidAPI key for Rainforest (e.g. a80878...) as the ultimate layer for product data aggregation.
+                        </p>
+                      </div>
+
+          <div className="border-t border-emerald-100/60 pt-3">
+                        <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3" /> OpenRouter API Key (Top Priority Fallback)
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="password" 
+                            value={globalSettings.openrouter_api_key || ''} 
+                            onChange={e => setGlobalSettings({ ...globalSettings, openrouter_api_key: e.target.value })} 
+                            className="flex-1 bg-white border border-emerald-200 rounded-lg p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                            placeholder="Paste your OpenRouter API key here"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                               try {
+                                  if (!globalSettings.openrouter_api_key || globalSettings.openrouter_api_key === 'YOUR_OPENROUTER_API_KEY') {
+                                      alert('Please enter a valid API key first.');
+                                      return;
+                                  }
+                                  const res = await fetch('/api/admin/test-openrouter', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ apiKey: globalSettings.openrouter_api_key })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                      alert('✅ Success! OpenRouter is working.\n\nResponse: ' + data.response);
+                                  } else {
+                                      alert('❌ Failed: ' + data.message);
+                                  }
+                               } catch (e) {
+                                   alert('Error testing OpenRouter API.');
+                               }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                          >
+                            Test
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1 leading-tight">
+                          Enter your OpenRouter API key. This will be used as the primary fallback for AI tasks if other providers fail.
                         </p>
                       </div>
 
@@ -4653,6 +4622,8 @@ export default function AdminDashboard() {
           
 
         </div>
-
-      </main></div></div>);
+      </main>
+    </div>
+  </div>
+  );
 }

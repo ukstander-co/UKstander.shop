@@ -52,6 +52,32 @@ class AICompatibilityClient {
 
           let lastError: any = null;
 
+          // 0. Try OpenRouter API first (if configured)
+          const openRouterKey = await getOpenRouterKey();
+          if (openRouterKey) {
+            try {
+              console.log(`[AI Compatibility] ${this.clientName} route calling OpenRouter API...`);
+              const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+                model: "~openai/gpt-latest",
+                messages: params.messages,
+                ...(jsonMode ? { response_format: params.response_format } : {})
+              }, {
+                headers: {
+                  'Authorization': `Bearer ${openRouterKey}`,
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://ukstander.shop',
+                  'X-OpenRouter-Title': 'UKStander'
+                },
+                timeout: 30000
+              });
+              if (response.data && response.data.choices && response.data.choices[0]) {
+                return response.data;
+              }
+            } catch (err: any) {
+              console.log(`[AI Compatibility] ${this.clientName} OpenRouter API failed:`, err.message || err);
+            }
+          }
+
           // 1. Try free OpenAI-compatible models from the Github Key Pool (e.g., GLM, DeepSeek, Gemini, GPT)
           let zenmuxSuccess = false;
           let zenmuxResponse: any = null;
@@ -410,7 +436,22 @@ const getGeminiClient = async (): Promise<GoogleGenAI | null> => {
   return null;
 };
 
-// Retrieve a working ZenMux API key from the database pool, falling back to global settings or process.env
+// Dynamic getter helper to retrieve the OpenRouter API Key
+const getOpenRouterKey = async (): Promise<string | null> => {
+  try {
+    const rows = await db.execute("SELECT value FROM global_settings WHERE key = 'openrouter_api_key'");
+    const key = rows.rows[0]?.value;
+    if (key && typeof key === 'string' && key.trim() !== '' && key !== 'YOUR_OPENROUTER_API_KEY') {
+      return key.trim();
+    }
+  } catch (err) {}
+
+  const envKey = process.env.OPENROUTER_API_KEY;
+  if (envKey && envKey.trim() !== '' && envKey !== 'YOUR_OPENROUTER_API_KEY') {
+    return envKey.trim();
+  }
+  return null;
+};
 const getWorkingZenMuxKey = async (): Promise<string | null> => {
   try {
     const rows = await db.execute("SELECT api_key FROM free_api_keys WHERE is_working = 1 ORDER BY created_at DESC");
@@ -699,6 +740,18 @@ async function initializeDatabase() {
             await db.execute({
               sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
               args: ['gemini_api_key', 'YOUR_GEMINI_API_KEY']
+            });
+          }
+        } catch (e) {}
+
+        // Check/Seed openrouter_api_key
+        try {
+          const openrouterApiKeyCheck = await db.execute("SELECT value FROM global_settings WHERE key = 'openrouter_api_key'");
+          const openrouterKeyValue = openrouterApiKeyCheck.rows[0]?.value;
+          if (!openrouterKeyValue || typeof openrouterKeyValue !== 'string' || openrouterKeyValue.trim() === '' || openrouterKeyValue === 'YOUR_OPENROUTER_API_KEY') {
+            await db.execute({
+              sql: "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)",
+              args: ['openrouter_api_key', 'YOUR_OPENROUTER_API_KEY']
             });
           }
         } catch (e) {}
@@ -5343,6 +5396,61 @@ Return valid JSON ONLY (no comments) in this format:
     } catch (error: any) {
       const errMsg = error.message || "Unknown error occurred";
       res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
+  // Test OpenRouter API Key Endpoint
+  app.post('/api/admin/test-openrouter', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || apiKey === 'YOUR_OPENROUTER_API_KEY') {
+        return res.status(400).json({ success: false, message: "Please provide a valid OpenRouter API key." });
+      }
+
+      console.log(`[Test] Testing OpenRouter API with provided key...`);
+      const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+        model: "openai/gpt-3.5-turbo",
+        messages: [{ role: "user", content: "Reply with exactly 'OpenRouter is working successfully!'" }]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://ukstander.shop',
+          'X-OpenRouter-Title': 'UKStander'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.choices && response.data.choices[0]?.message?.content) {
+        res.json({ success: true, response: response.data.choices[0].message.content });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid response format from OpenRouter API." });
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || "Unknown error occurred";
+      res.status(500).json({ success: false, message: errMsg });
+    }
+  });
+
+  // Test ScraperAPI Key Endpoint
+  app.post('/api/admin/test-scraperapi', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      const response = await axios.get(`https://api.scraperapi.com?api_key=${apiKey}&url=https://httpbin.org/get`, { timeout: 10000 });
+      res.json({ success: true, response: "ScraperAPI is working." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: "ScraperAPI failed." });
+    }
+  });
+
+  // Test ZenRows API Key Endpoint
+  app.post('/api/admin/test-zenrows', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      const response = await axios.get(`https://api.zenrows.com/v1/?apikey=${apiKey}&url=https://httpbin.org/get`, { timeout: 10000 });
+      res.json({ success: true, response: "ZenRows is working." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: "ZenRows failed." });
     }
   });
 
