@@ -5599,7 +5599,7 @@ Return valid JSON ONLY (no comments) in this format:
       if (!apiKey || apiKey.trim() === '') {
         return res.status(400).json({ success: false, message: "Please provide a valid PageSpeed API key." });
       }
-      const response = await axios.get(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https://httpbin.org/get&key=${apiKey}`, { timeout: 10000 });
+      const response = await axios.get(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https://web.dev/&key=${apiKey}`, { timeout: 10000 });
       res.json({ success: true, response: "PageSpeed API is working." });
     } catch (e: any) {
       res.status(500).json({ success: false, message: e.response?.data?.error?.message || e.message });
