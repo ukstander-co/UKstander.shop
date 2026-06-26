@@ -4505,23 +4505,54 @@ CORE INSTRUCTIONS:
       
       const itemsXml = products.slice(0, 100).map((product: any) => {
         const productUrl = `https://ukstander.shop/product/${product.id}`;
-        const imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        
+        // 1. Dynamic high-resolution image cleaning and upscaling for Unsplash & Amazon
+        let imageUrl = product.image_url || 'https://ukstander.shop/assets/placeholder.jpg';
+        if (imageUrl.includes('unsplash.com')) {
+          imageUrl = imageUrl.replace(/w=\d+/, 'w=1000').replace(/h=\d+/, 'h=1000');
+          if (!imageUrl.includes('w=')) {
+            imageUrl += (imageUrl.includes('?') ? '&' : '?') + 'w=1000&h=1000&fit=crop';
+          }
+        }
+        if (imageUrl.includes('images-amazon.com') || imageUrl.includes('media-amazon.com')) {
+          imageUrl = imageUrl.replace(/\._AC_[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SL[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SS[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SR[a-zA-Z0-9_,]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SX[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+          imageUrl = imageUrl.replace(/\._SY[a-zA-Z0-9_]+(?=\.[a-z]+$)/i, '');
+        }
+
+        // 2. Prevent spam duplicate filters with unique and descriptive titles
+        let title = product.ai_title || 'Premium Trending UK Product';
+        if (!product.ai_title || 
+            product.ai_title === 'UK Stander - Curated Elite British Products & Seasonal Bargains' || 
+            product.ai_title.trim() === '') {
+          // If the title is generic or missing, create a beautiful, unique descriptive title for Pinterest
+          const cat = product.category || 'Luxury Item';
+          title = `Curated British ${cat} - Premium Trend (Ref: #${product.id})`;
+        }
+
         const pubDate = product.created_at ? new Date(product.created_at).toUTCString() : new Date().toUTCString();
-        const desc = product.ai_description || `Grab this amazing trending UK product. Price: £${product.price}`;
+        const desc = product.ai_description || `Discover this amazing curated high-quality British product handpicked for UKStander. Category: ${product.category || 'UK Trends'}. Price: £${product.price || ''}.`;
         
         return `
     <item>
-      <title>${escapeXml(product.ai_title || 'Trending UK Product')}</title>
+      <title>${escapeXml(title)}</title>
       <link>${escapeXml(productUrl)}</link>
       <description>${escapeXml(desc)}</description>
       <pubDate>${pubDate}</pubDate>
-      <guid isPermaLink="true">${escapeXml(productUrl)}</guid>
-      <media:content url="${escapeXml(imageUrl)}" type="image/jpeg" medium="image" />
+      <guid isPermaLink="false">pinterest-prod-${product.id}</guid>
+      <category>${escapeXml(product.category || 'Shopping')}</category>
+      <enclosure url="${escapeXml(imageUrl)}" type="image/jpeg" />
+      <media:content url="${escapeXml(imageUrl)}" type="image/jpeg" medium="image">
+        <media:title type="plain">${escapeXml(title)}</media:title>
+      </media:content>
     </item>`;
       }).join('\n');
       
       const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>UKStander - Pinterest Auto-Publish Feed</title>
     <link>https://ukstander.shop/</link>
