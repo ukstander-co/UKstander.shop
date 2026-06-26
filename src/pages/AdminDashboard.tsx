@@ -339,6 +339,7 @@ export default function AdminDashboard() {
 
   // Products Management States
   const [productsList, setProductsList] = useState<any[]>([]);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
   const [priceAlertsList, setPriceAlertsList] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [productForm, setProductForm] = useState({
@@ -2033,25 +2034,69 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   
+                  {/* Search Box Input Field */}
+                  <div className="mb-4 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      id="product-search-input"
+                      placeholder="Type a product title to search..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="block w-full pl-10 pr-12 py-2.5 border border-indigo-100 rounded-xl bg-slate-50/50 text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-xs"
+                    />
+                    {productSearchQuery && (
+                      <button
+                        onClick={() => setProductSearchQuery('')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[10px] font-black uppercase text-rose-500 hover:text-rose-700 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
                   <div className="overflow-y-auto max-h-[800px] grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {productsList.map((prod) => (
-                      <div key={prod.db_id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-4">
-                         {prod.image_url && <img src={prod.image_url} alt={prod.ai_title} className="w-16 h-16 rounded-lg object-cover" />}
-                         <div className="flex-1 min-w-0">
-                           <h4 className="text-xs font-bold text-slate-900 truncate">{prod.ai_title}</h4>
-                           <p className="text-[10px] text-slate-500">{prod.category || 'General'}</p>
-                           <p className="text-xs font-bold text-slate-900 mt-1">£{prod.price || '0.00'}</p>
-                         </div>
-                         <div className="flex flex-col gap-1">
-                           <button onClick={() => handleEditProductClick(prod)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 hover:text-indigo-800">
-                             <Edit2 className="w-3 h-3" /> Edit
-                           </button>
-                           <button onClick={() => handleDeleteProduct(prod.db_id)} className="text-[10px] text-rose-600 font-bold flex items-center gap-1 hover:text-rose-800">
-                             <Trash2 className="w-3 h-3" /> Delete
-                           </button>
-                         </div>
-                      </div>
-                    ))}
+                    {(() => {
+                      const filtered = productsList.filter(prod => {
+                        if (!productSearchQuery.trim()) return true;
+                        const title = prod.ai_title || '';
+                        return title.toLowerCase().includes(productSearchQuery.toLowerCase());
+                      });
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 animate-fade-in">
+                            <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs font-bold text-slate-500">No products found matching "{productSearchQuery}"</p>
+                            <button 
+                              onClick={() => setProductSearchQuery('')}
+                              className="mt-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline cursor-pointer"
+                            >
+                              Reset Filter
+                            </button>
+                          </div>
+                        );
+                      }
+                      return filtered.map((prod) => (
+                        <div key={prod.db_id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-4 hover:border-indigo-100 transition-all duration-150">
+                           {prod.image_url && <img src={prod.image_url} alt={prod.ai_title} className="w-16 h-16 rounded-lg object-cover bg-white" />}
+                           <div className="flex-1 min-w-0">
+                             <h4 className="text-xs font-bold text-slate-900 truncate" title={prod.ai_title}>{prod.ai_title}</h4>
+                             <p className="text-[10px] text-slate-500">{prod.category || 'General'}</p>
+                             <p className="text-xs font-bold text-slate-900 mt-1">£{prod.price || '0.00'}</p>
+                           </div>
+                           <div className="flex flex-col gap-1 shrink-0">
+                             <button onClick={() => handleEditProductClick(prod)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 hover:text-indigo-800">
+                               <Edit2 className="w-3 h-3" /> Edit
+                             </button>
+                             <button onClick={() => handleDeleteProduct(prod.db_id)} className="text-[10px] text-rose-600 font-bold flex items-center gap-1 hover:text-rose-800">
+                               <Trash2 className="w-3 h-3" /> Delete
+                             </button>
+                           </div>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
