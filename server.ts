@@ -1327,6 +1327,21 @@ async function initializeDatabase() {
         `);
       } catch (e) {}
 
+      // Robustly ensure social_autopost_logs table exists
+      try {
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS social_autopost_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT,
+            item_title TEXT,
+            item_type TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+      } catch (e) {}
+
       // Robustly ensure global_settings and keys are in place even if return early
       try {
         await db.execute(`
